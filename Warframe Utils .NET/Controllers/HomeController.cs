@@ -2,21 +2,26 @@ using System.Diagnostics;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Warframe_Utils_.NET.Models;
+using Warframe_Utils_.NET.Services;
 
 namespace Warframe_Utils_.NET.Controllers
 {
     public class HomeController : Controller
     {
         private readonly ILogger<HomeController> _logger;
+        private readonly WarframeStatApiService warframeStatApiService;
 
-        public HomeController(ILogger<HomeController> logger)
+        public HomeController(ILogger<HomeController> logger,WarframeStatApiService warframeApiService)
         {
             _logger = logger;
+            warframeStatApiService = warframeApiService;
         }
 
-        public IActionResult Index()
+        public async Task<IActionResult> IndexAsync()
         {
-            return View();
+            // Fetch Warframe status data
+            var status = await warframeStatApiService.GetWarframeStatusAsync();
+            return View(status);
         }
 
         [Authorize]

@@ -14,6 +14,8 @@ builder.Services.AddDatabaseDeveloperPageExceptionFilter();
 builder.Services.AddDefaultIdentity<IdentityUser>(options => options.SignIn.RequireConfirmedAccount = true)
     .AddEntityFrameworkStores<ApplicationDbContext>();
 builder.Services.AddControllersWithViews();
+//MY SERVICES
+builder.Services.AddHttpClient<WarframeStatApiService>();
 
 var app = builder.Build();
 
@@ -36,8 +38,6 @@ app.UseRouting();
 
 app.UseAuthorization();
 
-//MY SERVICES
-builder.Services.AddHttpClient<WarframeStatApiService>();
 
 app.MapControllerRoute(
     name: "default",
