@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Warframe_Utils_.NET.Data;
+using Warframe_Utils_.NET.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -34,6 +35,9 @@ app.UseStaticFiles();
 app.UseRouting();
 
 app.UseAuthorization();
+
+//MY SERVICES
+builder.Services.AddHttpClient<WarframeStatApiService>();
 
 app.MapControllerRoute(
     name: "default",
