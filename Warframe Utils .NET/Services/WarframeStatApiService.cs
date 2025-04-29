@@ -19,6 +19,7 @@ namespace Warframe_Utils_.NET.Services
             if (response.IsSuccessStatusCode)
             {
                 var jsonResponse = await response.Content.ReadAsStringAsync();
+                //Console.Write(jsonResponse);
 
                 var options = new JsonSerializerOptions
                 {
@@ -30,7 +31,7 @@ namespace Warframe_Utils_.NET.Services
                 {
                     throw new Exception("Failed to deserialize WarframeStatus from API response.");
                 }
-
+                //Console.WriteLine("Baroo is " + result.BarooData.isActive);
                 return result;
             }
             else
