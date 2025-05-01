@@ -100,8 +100,3 @@ namespace Warframe_Utils_.NET.Services
 
     }
 }
-
-//TODO
-// I need a method to get all items and save them in memory
-// I need a method that given an item ID gives me a list of orders for that item
-// I will use LINQ for the filtering of items given its name in the view

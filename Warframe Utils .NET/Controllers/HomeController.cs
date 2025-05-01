@@ -23,7 +23,6 @@ namespace Warframe_Utils_.NET.Controllers
 
         public async Task<IActionResult> IndexAsync(string? modName)
         {
-            // Obtener datos de estado y mods
             var status = await warframeStatApiService.GetWarframeStatusAsync();
             var modsResponse = await warframeMarketApiService.GetAllModsAsync();
 
@@ -45,7 +44,6 @@ namespace Warframe_Utils_.NET.Controllers
                     }
                     catch (Exception ex)
                     {
-                        // Log error si lo deseas
                     }
                 }
             }

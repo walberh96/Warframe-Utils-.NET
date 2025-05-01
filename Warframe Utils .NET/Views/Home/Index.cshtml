@@ -78,12 +78,6 @@
             </span>
         </div>
 
-        @*         <!-- Arbitration Status -->
-        <div class="col-auto text-center">
-            <span class="me-2">👽</span><strong>Arbitration</strong><br>
-            <span class="text-muted">❌ Api not Working</span>
-        </div> *@
-
         <!-- Baroo Status -->
         <div class="col-auto text-center">
             <span class="me-2">👽</span><strong>Baroo</strong><br>
@@ -145,8 +139,8 @@
     </div>
 }
 
-<table class="table table-striped table-hover">
-    <thead class="table-dark">
+<table class="table table-hover">
+    <thead class="thead-dark">
         <tr>
             <th>Username</th>
             <th>Status</th>
@@ -269,13 +263,12 @@
         const currentValue = input.value.trim().toLowerCase();
 
         if (!mods.some(m => m.toLowerCase() === currentValue) && filtered.length > 0) {
-            input.value = filtered[0]; // autocomplete
+            input.value = filtered[0];
         }
 
         const finalValue = input.value.trim().toLowerCase();
         if (!mods.some(m => m.toLowerCase() === finalValue)) {
             e.preventDefault();
-            alert("No se encontró ningún mod con ese nombre.");
             input.focus();
         }
     });
