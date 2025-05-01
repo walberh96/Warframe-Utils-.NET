@@ -2,7 +2,10 @@ using System.Diagnostics;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Warframe_Utils_.NET.Models;
+using Warframe_Utils_.NET.Models.DTOS;
+using Warframe_Utils_.NET.Models.ViewModels;
 using Warframe_Utils_.NET.Services;
+using static Warframe_Utils_.NET.Models.DTOS.ModsResponse;
 
 namespace Warframe_Utils_.NET.Controllers
 {
@@ -10,19 +13,56 @@ namespace Warframe_Utils_.NET.Controllers
     {
         private readonly ILogger<HomeController> _logger;
         private readonly WarframeStatApiService warframeStatApiService;
-
-        public HomeController(ILogger<HomeController> logger,WarframeStatApiService warframeApiService)
+        private readonly WarframeMarketApiService warframeMarketApiService;
+        public HomeController(ILogger<HomeController> logger,WarframeStatApiService warframeApiService, WarframeMarketApiService marketApiService)
         {
             _logger = logger;
             warframeStatApiService = warframeApiService;
+            warframeMarketApiService = marketApiService;
         }
 
-        public async Task<IActionResult> IndexAsync()
+        public async Task<IActionResult> IndexAsync(string? modName)
         {
-            // Fetch Warframe status data
+            // Obtener datos de estado y mods
             var status = await warframeStatApiService.GetWarframeStatusAsync();
-            return View(status);
+            var modsResponse = await warframeMarketApiService.GetAllModsAsync();
+
+            Mod? modFound = null;
+            OrdersResponse? orders = null;
+            ModDetailResponse? modDetail = null;
+
+            if (!string.IsNullOrWhiteSpace(modName))
+            {
+                modFound = modsResponse.Payload.Mods
+                    .FirstOrDefault(m => m.ItemName.Equals(modName, StringComparison.OrdinalIgnoreCase));
+
+                if (modFound != null)
+                {
+                    try
+                    {
+                        orders = await warframeMarketApiService.GetAllOrdersAsync(modFound.UrlName);
+                        modDetail = await warframeMarketApiService.GetItemAsync(modFound.UrlName);
+                    }
+                    catch (Exception ex)
+                    {
+                        // Log error si lo deseas
+                    }
+                }
+            }
+
+            var viewModel = new WarframeHomeViewModel
+            {
+                Status = status,
+                Mods = modsResponse,
+                ModFound = modFound,
+                Orders = orders,
+                ModDetail = modDetail
+            };
+
+            return View(viewModel);
         }
+
+
 
         [Authorize]
         [Route("/About")]

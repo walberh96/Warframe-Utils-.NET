@@ -16,6 +16,7 @@ builder.Services.AddDefaultIdentity<IdentityUser>(options => options.SignIn.Requ
 builder.Services.AddControllersWithViews();
 //MY SERVICES
 builder.Services.AddHttpClient<WarframeStatApiService>();
+builder.Services.AddHttpClient<WarframeMarketApiService>();
 
 var app = builder.Build();
 
