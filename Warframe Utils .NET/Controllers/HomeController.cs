@@ -44,6 +44,10 @@ namespace Warframe_Utils_.NET.Controllers
                     }
                     catch (Exception ex)
                     {
+                        _logger.LogError(ex, "Error fetching orders or mod details for {ModName}", modFound.ItemName);
+                        // Handle the error as needed, e.g., set orders and modDetail to null or an empty state
+                        orders = null;
+                        modDetail = null;
                     }
                 }
             }
@@ -52,7 +56,7 @@ namespace Warframe_Utils_.NET.Controllers
             {
                 Status = status,
                 Mods = modsResponse,
-                ModFound = modFound,
+                ModFound = modFound!,
                 Orders = orders,
                 ModDetail = modDetail
             };
@@ -62,12 +66,12 @@ namespace Warframe_Utils_.NET.Controllers
 
 
 
-        [Authorize]
+        /* [Authorize]
         [Route("/About")]
         public IActionResult About()
         {
             return View();
-        }
+        } */
 
         [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
         public IActionResult Error()
