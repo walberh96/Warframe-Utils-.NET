@@ -31,11 +31,11 @@ namespace Warframe_Utils_.NET.Services
                 };
 
                 var result = JsonSerializer.Deserialize<ModsResponse>(jsonResponse, options);
-                Console.WriteLine(result.Payload.Mods.Count);
-                if (result == null)
+                if (result == null || result.Payload == null || result.Payload.Mods == null)
                 {
                     throw new Exception("Failed to deserialize WarframeMarket from API response.");
                 }
+                Console.WriteLine(result.Payload.Mods.Count);
                 return result;
             }
             else
