@@ -27,7 +27,7 @@ namespace Warframe_Utils_.NET.Models.DTOS
         /// Required for proper deserialization.
         /// </summary>
         [JsonPropertyName("payload")]
-        public ModsPayload Payload { get; set; }
+        public required ModsPayload Payload { get; set; }
 
         /// <summary>
         /// ModsPayload - Container for the list of mods/items.
@@ -41,7 +41,7 @@ namespace Warframe_Utils_.NET.Models.DTOS
             /// Used for populating the autocomplete search suggestions.
             /// </summary>
             [JsonPropertyName("items")]
-            public List<Mod> Mods { get; set; }
+            public required List<Mod> Mods { get; set; }
         }
 
         /// <summary>
@@ -56,7 +56,7 @@ namespace Warframe_Utils_.NET.Models.DTOS
             /// This is what users see in the UI.
             /// </summary>
             [JsonPropertyName("item_name")]
-            public string ItemName { get; set; }
+            public required string ItemName { get; set; }
 
             /// <summary>
             /// URL to the mod's thumbnail image.
@@ -64,7 +64,7 @@ namespace Warframe_Utils_.NET.Models.DTOS
             /// Used for displaying small mod icons in lists.
             /// </summary>
             [JsonPropertyName("thumb")]
-            public string Thumb { get; set; }
+            public required string Thumb { get; set; }
 
             /// <summary>
             /// URL-safe identifier for the mod.
@@ -73,7 +73,7 @@ namespace Warframe_Utils_.NET.Models.DTOS
             /// Do NOT use ItemName for API calls - it won't work.
             /// </summary>
             [JsonPropertyName("url_name")]
-            public string UrlName { get; set; }
+            public required string UrlName { get; set; }
         }
     }
 }
