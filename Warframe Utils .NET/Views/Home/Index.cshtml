@@ -112,7 +112,7 @@
 </form>
 
 
-@if (Model.ModFound != null)
+@if (Model.ModFound != null && Model.ModDetail?.Payload?.Item?.ItemsInSet?.Count > 0)
 {
     //"icon": "items/images/en/energy_nexus.c58c98ff3e9a65ea7419e4915e5681a6.png"
     <div class="card mb-4" style="width: 100%; max-height: 200px;">
@@ -126,7 +126,7 @@
                 <div class="card-body d-flex flex-column h-100">
                     <div>
                         <h5 class="card-title">💣 @Model.ModFound.ItemName</h5>
-                        <h5 class="card-title">💣 @Model.ModDetail.Payload.Item.ItemsInSet.FirstOrDefault()?.En.Description</h5>
+                        <h5 class="card-title">💣 @Model.ModDetail.Payload.Item.ItemsInSet.FirstOrDefault()?.En?.Description</h5>
                         <p class="card-text">💸 Trading Tax: @Model.ModDetail.Payload.Item.ItemsInSet[0].TradingTax</p>
                         
                     </div>
@@ -150,10 +150,10 @@
         </tr>
     </thead>
     <tbody>
-        @if (Model.Orders?.Payload?.Orders != null && Model.Orders.Payload.Orders.Any())
+        @if (Model.Orders?.Orders != null && Model.Orders.Orders.Any())
         {
-            @foreach (var order in Model.Orders.Payload.Orders
-           .Where(o => o.OrderType == "sell" && o.User?.Status == "ingame" && o.Visible).OrderBy(m => m.Price).OrderBy(m=>m.ModRank))
+            @foreach (var order in Model.Orders.Orders
+           .Where(o => o.Type == "sell" && o.User?.Status == "ingame" && o.Visible).OrderBy(m => m.Platinum).OrderBy(m=>m.Rank))
             {
                 <tr>
                     <td class="d-flex justify-content-between align-items-center">
@@ -171,9 +171,9 @@
                             @status.First().ToString().ToUpper()@status.Substring(1)
                         </span>
                     </td>
-                    <td>@order.Price</td>
+                    <td>@order.Platinum</td>
                     <td>@order.Quantity</td>
-                    <td>@order.ModRank</td>
+                    <td>@order.Rank</td>
                 </tr>
             }
         }
@@ -184,11 +184,7 @@
             </tr>
         }
     </tbody>
-</table>
-
-
-
-<script>
+</table><script>
     function copyUsername(username) {
         const textToCopy = `/w ${username}`;
         navigator.clipboard.writeText(textToCopy).catch(err => {

@@ -134,8 +134,8 @@ namespace Warframe_Utils_.NET.Services
         /// - Price and quantity
         /// - Mod rank (for mods with ranks)
         /// 
-        /// API Endpoint: GET https://api.warframe.market/v1/items/{itemId}/orders
-        /// Example: https://api.warframe.market/v1/items/energy_nexus/orders
+        /// API Endpoint: GET https://api.warframe.market/v2/orders/item/{slug}
+        /// Example: https://api.warframe.market/v2/orders/item/energy_nexus
         /// 
         /// Useful for:
         /// - Displaying current market prices
@@ -172,7 +172,16 @@ namespace Warframe_Utils_.NET.Services
                         throw new Exception($"Failed to deserialize orders for item '{itemId}' - response structure invalid.");
                     }
 
-                    Console.WriteLine($"[INFO] Retrieved {result.Payload.Orders?.Count ?? 0} orders for item: {itemId}");
+                    // Check if orders list exists
+                    if (result.Orders == null)
+                    {
+                        Console.WriteLine($"[INFO] Retrieved 0 orders for item: {itemId}");
+                        result.Orders = new List<OrdersResponse.Order>();
+                    }
+                    else
+                    {
+                        Console.WriteLine($"[INFO] Retrieved {result.Orders.Count} orders for item: {itemId}");
+                    }
 
                     return result;
                 }
@@ -223,23 +232,73 @@ namespace Warframe_Utils_.NET.Services
                 }
 
                 // Make HTTP GET request to the item detail endpoint
-                var response = await _httpClient.GetAsync($"{ApiUrl}items/{itemId}");
+                // v2 API: GET /v2/item/{slug}
+                var response = await _httpClient.GetAsync($"{ApiUrl}item/{itemId}");
 
                 if (response.IsSuccessStatusCode)
                 {
                     var jsonResponse = await response.Content.ReadAsStringAsync();
 
-                    // Deserialize JSON to ModDetailResponse object
-                    var result = JsonSerializer.Deserialize<ModDetailResponse>(jsonResponse, _jsonOptions);
-
-                    if (result == null)
+                    // v2 API Response structure: { apiVersion: "x.x.x", data: Item, error: null }
+                    // Parse JSON to extract the Item data
+                    using (JsonDocument doc = JsonDocument.Parse(jsonResponse))
                     {
-                        throw new Exception($"Failed to deserialize item details for '{itemId}' - response structure invalid.");
+                        var dataElement = doc.RootElement.GetProperty("data");
+                        var itemJson = JsonSerializer.Serialize(dataElement);
+                        
+                        // Parse the Item into our ModDetailSetItem structure
+                        // v2 Item has i18n.en with name, description, icon, thumb
+                        var itemData = JsonDocument.Parse(itemJson);
+                        var itemRoot = itemData.RootElement;
+                        
+                        var en = default(JsonElement);
+                        var icon = itemRoot.TryGetProperty("i18n", out var i18n) && 
+                                  i18n.TryGetProperty("en", out en) &&
+                                  en.TryGetProperty("icon", out var iconProp) 
+                                  ? iconProp.GetString() : null;
+                        
+                        var thumb = en.ValueKind != JsonValueKind.Undefined && en.TryGetProperty("thumb", out var thumbProp) 
+                                  ? thumbProp.GetString() : null;
+                        
+                        var description = en.ValueKind != JsonValueKind.Undefined && en.TryGetProperty("description", out var descProp) 
+                                       ? descProp.GetString() : null;
+                        
+                        var name = en.ValueKind != JsonValueKind.Undefined && en.TryGetProperty("name", out var nameProp) 
+                                ? nameProp.GetString() : null;
+
+                        var tradingTax = itemRoot.TryGetProperty("tradingTax", out var taxProp) 
+                                      ? taxProp.GetInt32() : 0;
+
+                        // Create a ModDetailSetItem to match the view's expectations
+                        var setItem = new ModDetailResponse.ModDetailPayload.ModDetailItem.ModDetailSetItem
+                        {
+                            Icon = icon,
+                            Thumb = thumb,
+                            TradingTax = tradingTax,
+                            UrlName = itemId,
+                            En = new ModDetailResponse.ModDetailPayload.ModDetailItem.ModDetailSetItem.ModDetailLocalization
+                            {
+                                ItemName = name,
+                                Description = description
+                            }
+                        };
+
+                        // Create wrapper structure to match view expectations
+                        var result = new ModDetailResponse
+                        {
+                            Payload = new ModDetailResponse.ModDetailPayload
+                            {
+                                Item = new ModDetailResponse.ModDetailPayload.ModDetailItem
+                                {
+                                    ItemsInSet = new List<ModDetailResponse.ModDetailPayload.ModDetailItem.ModDetailSetItem> { setItem }
+                                }
+                            }
+                        };
+
+                        Console.WriteLine($"[INFO] Retrieved item details for: {itemId}");
+
+                        return result;
                     }
-
-                    Console.WriteLine($"[INFO] Retrieved item details for: {itemId}");
-
-                    return result;
                 }
                 else
                 {
