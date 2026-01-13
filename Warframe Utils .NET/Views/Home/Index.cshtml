@@ -131,7 +131,13 @@
                         
                     </div>
                     <div class="mt-auto">
-                        <a href="https://wiki.warframe.com/w/@Uri.EscapeDataString(Model.ModFound.ItemName)" target="_blank">📚 Warframe Wiki</a>
+                        <a href="https://wiki.warframe.com/w/@Uri.EscapeDataString(Model.ModFound.ItemName)" target="_blank" class="me-2">📚 Warframe Wiki</a>
+                        @if (User.Identity?.IsAuthenticated ?? false)
+                        {
+                            <button class="btn btn-sm btn-outline-warning" data-bs-toggle="modal" data-bs-target="#alertModal" onclick="prepareAlertModal('@Model.ModFound.ItemName')">
+                                <i class="fas fa-bell"></i> <span id="alertButtonText">Place Alert</span>
+                            </button>
+                        }
                     </div>
                 </div>
             </div>
@@ -268,4 +274,153 @@
             input.focus();
         }
     });
+</script>
+
+<!-- Alert Modal -->
+<div class="modal fade" id="alertModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="alertModalTitle">Place Alert</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-3"><strong>Item:</strong> <span id="alertItemName"></span></p>
+                <form id="alertForm">
+                    <input type="hidden" id="alertItemNameInput">
+                    <div class="mb-3">
+                        <label for="alertPrice" class="form-label">Alert Price (Platinum) *</label>
+                        <input type="number" class="form-control" id="alertPrice" name="alertPrice" placeholder="100" min="0" step="1" required>
+                        <small class="form-text text-muted">You'll be notified when the price drops to this amount or lower</small>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-danger me-auto d-none" id="removeAlertBtn" onclick="removeAlert()">
+                    <i class="fas fa-trash"></i> Remove Alert
+                </button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="submitAlertBtn" onclick="submitAlert()">Create Alert</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let currentAlertId = null;
+
+    async function prepareAlertModal(itemName) {
+        document.getElementById('alertItemName').textContent = itemName;
+        document.getElementById('alertItemNameInput').value = itemName;
+        document.getElementById('alertPrice').value = '';
+        currentAlertId = null;
+
+        // Check if alert already exists for this item
+        try {
+            const response = await fetch('/api/alert');
+            if (response.ok) {
+                const alerts = await response.json();
+                const existingAlert = alerts.find(a => a.itemName.toLowerCase() === itemName.toLowerCase());
+                
+                if (existingAlert) {
+                    // Alert exists - show Modify mode
+                    currentAlertId = existingAlert.id;
+                    document.getElementById('alertModalTitle').textContent = 'Modify Alert';
+                    document.getElementById('alertPrice').value = existingAlert.alertPrice;
+                    document.getElementById('submitAlertBtn').textContent = 'Update Alert';
+                    document.getElementById('removeAlertBtn').classList.remove('d-none');
+                    document.getElementById('alertButtonText').textContent = 'Modify Alert';
+                } else {
+                    // No alert exists - show Create mode
+                    document.getElementById('alertModalTitle').textContent = 'Place Alert';
+                    document.getElementById('submitAlertBtn').textContent = 'Create Alert';
+                    document.getElementById('removeAlertBtn').classList.add('d-none');
+                    document.getElementById('alertButtonText').textContent = 'Place Alert';
+                }
+            }
+        } catch (error) {
+            console.error('Error checking for existing alert:', error);
+        }
+    }
+
+    async function submitAlert() {
+        const itemName = document.getElementById('alertItemNameInput').value;
+        const alertPrice = parseFloat(document.getElementById('alertPrice').value);
+
+        if (!itemName || isNaN(alertPrice)) {
+            alert('Please fill in all fields');
+            return;
+        }
+
+        try {
+            let response;
+            if (currentAlertId) {
+                // Update existing alert
+                response = await fetch(`/api/alert/${currentAlertId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        itemName: itemName,
+                        alertPrice: alertPrice,
+                        isActive: true
+                    })
+                });
+            } else {
+                // Create new alert
+                response = await fetch('/api/alert', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        itemName: itemName,
+                        alertPrice: alertPrice
+                    })
+                });
+            }
+
+            if (!response.ok) throw new Error('Failed to save alert');
+
+            // If creating new alert, get the alert ID from response and update button
+            if (!currentAlertId) {
+                const data = await response.json();
+                currentAlertId = data.id;
+                document.getElementById('alertButtonText').textContent = 'Modify Alert';
+            }
+
+            // Close modal and show success
+            const modal = bootstrap.Modal.getInstance(document.getElementById('alertModal'));
+            modal.hide();
+            
+            const successMsg = currentAlertId ? 'Alert updated successfully!' : 'Alert created successfully!';
+            showSuccess(successMsg);
+        } catch (error) {
+            console.error('Error saving alert:', error);
+            alert('Failed to save alert');
+        }
+    }
+
+    async function removeAlert() {
+        if (!currentAlertId || !confirm('Are you sure you want to remove this alert?')) return;
+
+        try {
+            const response = await fetch(`/api/alert/${currentAlertId}`, { method: 'DELETE' });
+            if (!response.ok) throw new Error('Failed to delete alert');
+
+            const modal = bootstrap.Modal.getInstance(document.getElementById('alertModal'));
+            modal.hide();
+            
+            showSuccess('Alert removed successfully!');
+            document.getElementById('alertButtonText').textContent = 'Place Alert';
+        } catch (error) {
+            console.error('Error deleting alert:', error);
+            alert('Failed to delete alert');
+        }
+    }
+
+    function showSuccess(message) {
+        const alert = document.createElement('div');
+        alert.className = 'alert alert-success alert-dismissible fade show';
+        alert.innerHTML = `${message} <button type="button" class="btn-close" data-bs-dismiss="alert"></button>`;
+        document.querySelector('.container').prepend(alert);
+        setTimeout(() => alert.remove(), 5000);
+    }
 </script>
