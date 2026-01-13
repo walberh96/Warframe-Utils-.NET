@@ -22,6 +22,12 @@
                         <li class="nav-item">
                             <a class="nav-link theme-text" asp-area="" asp-controller="Home" asp-action="Index">Home</a>
                         </li>
+                        @if (User.Identity?.IsAuthenticated ?? false)
+                        {
+                            <li class="nav-item">
+                                <a class="nav-link theme-text" href="/Alerts">My Alerts</a>
+                            </li>
+                        }
                         <li class="nav-item">
                             <button id="theme-toggle" class="btn theme-toggle-btn ms-2" title="Toggle Theme">🌓</button>
                         </li>

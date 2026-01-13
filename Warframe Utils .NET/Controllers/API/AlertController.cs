@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using Warframe_Utils_.NET.Data;
 using Warframe_Utils_.NET.Models;
 using Warframe_Utils_.NET.Models.DTOS;
+using Warframe_Utils_.NET.Services;
 
 namespace Warframe_Utils_.NET.Controllers.API
 {
@@ -20,15 +21,18 @@ namespace Warframe_Utils_.NET.Controllers.API
         private readonly ApplicationDbContext _context;
         private readonly UserManager<IdentityUser> _userManager;
         private readonly ILogger<AlertController> _logger;
+        private readonly WarframeMarketApiService _marketApiService;
 
         public AlertController(
             ApplicationDbContext context,
             UserManager<IdentityUser> userManager,
-            ILogger<AlertController> logger)
+            ILogger<AlertController> logger,
+            WarframeMarketApiService marketApiService)
         {
             _context = context;
             _userManager = userManager;
             _logger = logger;
+            _marketApiService = marketApiService;
         }
 
         /// <summary>
@@ -231,6 +235,115 @@ namespace Warframe_Utils_.NET.Controllers.API
             await _context.SaveChangesAsync();
 
             return Ok(MapNotificationToDto(notification));
+        }
+
+        /// <summary>
+        /// Get current prices/orders for an item from Warframe Market
+        /// </summary>
+        [HttpGet("prices/{itemUrlName}")]
+        public async Task<ActionResult> GetItemPrices(string itemUrlName)
+        {
+            try
+            {
+                var userId = _userManager.GetUserId(User);
+                _logger.LogInformation($"GetItemPrices called for {itemUrlName}, userId: {userId}");
+                
+                var orders = await _marketApiService.GetAllOrdersAsync(itemUrlName);
+                
+                // Get the minimum sell price
+                var minPrice = orders?.Orders?
+                    .Where(o => o.Type == "sell" && o.User?.Status == "ingame" && o.Visible)
+                    .OrderBy(o => o.Platinum)
+                    .FirstOrDefault()?.Platinum;
+
+                _logger.LogInformation($"Minimum price for {itemUrlName}: {minPrice}");
+
+                // Check if any alerts should be triggered for this item
+                if (minPrice.HasValue && userId != null)
+                {
+                    // Get all active alerts (including already triggered ones)
+                    var userAlerts = await _context.PriceAlerts
+                        .Where(a => a.UserId == userId && a.IsActive)
+                        .ToListAsync();
+
+                    _logger.LogInformation($"Found {userAlerts.Count} active alerts for user {userId}");
+
+                    foreach (var alert in userAlerts)
+                    {
+                        // Match by ItemId (URL name) first, then by ItemName as fallback
+                        bool isMatchingItem = false;
+                        
+                        if (!string.IsNullOrEmpty(alert.ItemId))
+                        {
+                            isMatchingItem = alert.ItemId.Equals(itemUrlName, StringComparison.OrdinalIgnoreCase);
+                        }
+                        
+                        if (!isMatchingItem && !string.IsNullOrEmpty(alert.ItemName))
+                        {
+                            // Fallback to name matching with normalization
+                            var normalizedItemUrl = itemUrlName.Replace("-", " ");
+                            isMatchingItem = alert.ItemName.Equals(normalizedItemUrl, StringComparison.OrdinalIgnoreCase);
+                        }
+
+                        if (isMatchingItem)
+                        {
+                            _logger.LogInformation($"Found matching alert: {alert.ItemName} (ItemId: {alert.ItemId})");
+                            alert.CurrentPrice = minPrice.Value;
+                            alert.LastCheckedAt = DateTime.UtcNow;
+
+                            // If price has dropped to or below alert threshold
+                            if (minPrice.Value <= alert.AlertPrice)
+                            {
+                                _logger.LogWarning($"Price condition met for {alert.ItemName}: {minPrice.Value} <= {alert.AlertPrice}");
+                                
+                                // Check if there's already an unread notification for this alert
+                                var existingUnreadNotification = await _context.AlertNotifications
+                                    .AnyAsync(n => n.PriceAlertId == alert.Id && !n.IsRead);
+
+                                if (!existingUnreadNotification)
+                                {
+                                    _logger.LogWarning($"TRIGGERING ALERT for {alert.ItemName}: {minPrice.Value} <= {alert.AlertPrice}");
+                                    alert.IsTriggered = true;
+                                    alert.TriggeredAt = DateTime.UtcNow;
+
+                                    // Create notification
+                                    var notification = new AlertNotification
+                                    {
+                                        UserId = userId,
+                                        PriceAlertId = alert.Id,
+                                        Message = $"The price of {alert.ItemName} has dropped to {minPrice.Value} platinum (alert threshold: {alert.AlertPrice})",
+                                        TriggeredPrice = minPrice.Value,
+                                        CreatedAt = DateTime.UtcNow,
+                                        IsRead = false
+                                    };
+
+                                    _context.AlertNotifications.Add(notification);
+                                    _logger.LogWarning($"Notification created for alert {alert.Id}");
+                                }
+                                else
+                                {
+                                    _logger.LogInformation($"Unread notification already exists for alert {alert.Id}, skipping new notification");
+                                }
+                            }
+                            else
+                            {
+                                _logger.LogInformation($"Price NOT met: {minPrice.Value} > {alert.AlertPrice}");
+                            }
+                            
+                            _context.PriceAlerts.Update(alert);
+                        }
+                    }
+
+                    await _context.SaveChangesAsync();
+                }
+
+                return Ok(orders);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching prices for {ItemUrlName}", itemUrlName);
+                return BadRequest(new { error = "Failed to fetch prices" });
+            }
         }
 
         // Helper methods

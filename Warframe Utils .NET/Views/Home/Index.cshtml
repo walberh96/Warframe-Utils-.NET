@@ -8,7 +8,12 @@
 
 <div class="text-center mb-4">
     <h1 class="display-4">Warframe Utils .NET</h1>
+    <div id="debugStatus" class="badge bg-info" style="display:none;"></div>
 </div>
+
+<!-- Alert Notifications Container -->
+<div id="alertNotificationsContainer" class="mb-4"></div>
+
 <div class="container-fluid p-3 mb-4 bg-light rounded-3 shadow-sm">
     <div class="row justify-content-between align-items-center">
         <!-- Plains of Eidolon -->
@@ -308,6 +313,223 @@
 
 <script>
     let currentAlertId = null;
+    let priceRefreshInterval = null;
+    const currentItemName = '@Model.ModFound?.ItemName';
+    const currentItemUrlName = '@Model.ModFound?.UrlName';
+
+    // Start price refresh interval when page loads
+    document.addEventListener('DOMContentLoaded', async function () {
+        console.log(`Page loaded. currentItemName: "${currentItemName}", currentItemUrlName: "${currentItemUrlName}"`);
+        
+        // Check if there's a search query parameter and auto-search
+        const urlParams = new URLSearchParams(window.location.search);
+        const searchParam = urlParams.get('search');
+        if (searchParam) {
+            console.log('Auto-searching for:', searchParam);
+            const input = document.getElementById('searchBox');
+            if (input) {
+                input.value = searchParam;
+                const form = document.getElementById('searchForm');
+                if (form) {
+                    form.requestSubmit();
+                }
+            }
+        }
+        
+        if (currentItemName && currentItemUrlName) {
+            // Check if alert exists for this item and update button
+            await checkAndUpdateAlertButton(currentItemName);
+            startPriceRefresh();
+        }
+    });
+
+    function showDebugStatus(message) {
+        const debugEl = document.getElementById('debugStatus');
+        if (debugEl) {
+            debugEl.textContent = message;
+            debugEl.style.display = 'inline-block';
+        }
+    }
+
+    function startPriceRefresh() {
+        // Clear any existing interval
+        if (priceRefreshInterval) {
+            clearInterval(priceRefreshInterval);
+            console.log('Cleared existing price refresh interval');
+        }
+
+        // Refresh prices every 30 seconds
+        console.log('Starting new price refresh interval (30 seconds)');
+        priceRefreshInterval = setInterval(refreshPrices, 30000);
+    }
+
+    async function refreshPrices() {
+        if (!currentItemName || !currentItemUrlName) {
+            console.log('Refresh skipped: no item loaded');
+            return;
+        }
+
+        try {
+            const now = new Date().toLocaleTimeString();
+            console.log(`[${now}] Refreshing prices for: ${currentItemUrlName}`);
+            
+            const response = await fetch(`/api/alert/prices/${currentItemUrlName}`);
+            console.log(`[${now}] Price refresh response status: ${response.status}`);
+            
+            if (response.ok) {
+                const orders = await response.json();
+                console.log(`[${now}] Orders received:`, orders);
+                
+                updatePricesTable(orders);
+                
+                // Check for new triggered notifications
+                await checkForTriggeredAlerts();
+                showDebugStatus(`Last refresh: ${now}`);
+            } else {
+                showDebugStatus(`Error: ${response.status}`);
+            }
+        } catch (error) {
+            console.error('Error refreshing prices:', error);
+            showDebugStatus(`Error: ${error.message}`);
+        }
+    }
+
+    async function checkForTriggeredAlerts() {
+        try {
+            console.log('Checking for triggered alerts...');
+            const response = await fetch('/api/alert/notifications/unread');
+            console.log(`Notifications response status: ${response.status}`);
+            if (response.ok) {
+                const notifications = await response.json();
+                console.log('Notifications received:', notifications);
+                displayTriggeredNotifications(notifications);
+            }
+        } catch (error) {
+            console.error('Error checking for triggered alerts:', error);
+        }
+    }
+
+    function displayTriggeredNotifications(notifications) {
+        const container = document.getElementById('alertNotificationsContainer');
+        if (!container) {
+            console.error('Alert notifications container not found!');
+            return;
+        }
+
+        console.log(`Displaying ${notifications.length} notifications`);
+        
+        notifications.forEach(notification => {
+            console.log('Processing notification:', notification);
+            // Check if notification already displayed
+            if (document.getElementById(`notification-${notification.id}`)) {
+                console.log(`Notification ${notification.id} already displayed`);
+                return;
+            }
+
+            const notificationHtml = `
+                <div class="alert alert-danger alert-dismissible fade show" id="notification-${notification.id}" role="alert">
+                    <h4 class="alert-heading"><i class="fas fa-exclamation-circle"></i> 🔔 Alert Triggered!</h4>
+                    <p><strong>${notification.itemName}</strong> price dropped to <strong>${notification.triggeredPrice} platinum</strong></p>
+                    <p class="mb-2"><small>${notification.message}</small></p>
+                    <button type="button" class="btn btn-sm btn-outline-danger" onclick="markNotificationAsRead(${notification.id}, ${notification.id})">Dismiss</button>
+                </div>
+            `;
+            console.log('Inserting notification HTML');
+            container.insertAdjacentHTML('beforeend', notificationHtml);
+        });
+    }
+
+    async function markNotificationAsRead(notificationId, elementId) {
+        try {
+            const response = await fetch(`/api/alert/notifications/${notificationId}/read`, { method: 'POST' });
+            if (response.ok) {
+                const element = document.getElementById(`notification-${elementId}`);
+                if (element) {
+                    element.remove();
+                }
+            }
+        } catch (error) {
+            console.error('Error marking notification as read:', error);
+        }
+    }
+
+    function updatePricesTable(ordersData) {
+        // Update the orders table with new data
+        const tbody = document.querySelector('.table tbody');
+        if (!tbody) return;
+        
+        // Don't update if ordersData is invalid
+        if (!ordersData || !ordersData.orders) {
+            console.log('No orders data to update table');
+            return;
+        }
+
+        // Filter sell orders that are in-game and visible
+        const filteredOrders = (ordersData.orders || [])
+            .filter(o => o.type === 'sell' && o.user?.status === 'ingame' && o.visible)
+            .sort((a, b) => a.platinum - b.platinum)
+            .sort((a, b) => a.rank - b.rank);
+
+        // Clear existing rows
+        tbody.innerHTML = '';
+
+        if (filteredOrders.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted">No orders found for this mod.</td></tr>';
+            return;
+        }
+
+        // Add updated rows
+        filteredOrders.forEach(order => {
+            const row = document.createElement('tr');
+            const statusBadge = getStatusBadge(order.user?.status);
+
+            row.innerHTML = `
+                <td class="d-flex justify-content-between align-items-center">
+                    <span>${order.user?.inGameName || 'Unknown'}</span>
+                    <button class="btn btn-sm btn-outline-primary" onclick="copyUsername('${order.user?.inGameName || ''}')">Copy</button>
+                </td>
+                <td>${statusBadge}</td>
+                <td>${order.platinum}</td>
+                <td>${order.quantity}</td>
+                <td>${order.rank}</td>
+            `;
+            tbody.appendChild(row);
+        });
+    }
+
+    function getStatusBadge(status) {
+        const statusValue = status || 'offline';
+        const badgeClass = statusValue === 'ingame' ? 'bg-success' :
+            statusValue === 'offline' ? 'bg-secondary' : 'bg-warning text-dark';
+        const displayText = statusValue.charAt(0).toUpperCase() + statusValue.slice(1);
+
+        return `<span class="badge ${badgeClass}">${displayText}</span>`;
+    }
+
+    async function checkAndUpdateAlertButton(itemName) {
+        try {
+            const response = await fetch('/api/alert');
+            if (response.ok) {
+                const alerts = await response.json();
+                const existingAlert = alerts.find(a => a.itemName.toLowerCase() === itemName.toLowerCase());
+                
+                const buttonTextEl = document.getElementById('alertButtonText');
+                if (buttonTextEl) {
+                    if (existingAlert) {
+                        currentAlertId = existingAlert.id;
+                        buttonTextEl.textContent = 'Modify Alert';
+                        // Check for triggered alerts but don't update table
+                        await checkForTriggeredAlerts();
+                    } else {
+                        currentAlertId = null;
+                        buttonTextEl.textContent = 'Place Alert';
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('Error checking for existing alert:', error);
+        }
+    }
 
     async function prepareAlertModal(itemName) {
         document.getElementById('alertItemName').textContent = itemName;
@@ -347,6 +569,8 @@
         const itemName = document.getElementById('alertItemNameInput').value;
         const alertPrice = parseFloat(document.getElementById('alertPrice').value);
 
+        console.log(`Submit alert - itemName: "${itemName}", alertPrice: ${alertPrice}, currentItemUrlName: "${currentItemUrlName}"`);
+
         if (!itemName || isNaN(alertPrice)) {
             alert('Please fill in all fields');
             return;
@@ -356,6 +580,7 @@
             let response;
             if (currentAlertId) {
                 // Update existing alert
+                console.log(`Updating existing alert ${currentAlertId}`);
                 response = await fetch(`/api/alert/${currentAlertId}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
@@ -366,31 +591,53 @@
                     })
                 });
             } else {
-                // Create new alert
+                // Create new alert with ItemId (URL name)
+                console.log(`Creating new alert with itemId: "${currentItemUrlName}"`);
                 response = await fetch('/api/alert', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         itemName: itemName,
+                        itemId: currentItemUrlName,
                         alertPrice: alertPrice
                     })
                 });
             }
 
+            console.log(`Alert response status: ${response.status}`);
             if (!response.ok) throw new Error('Failed to save alert');
+
+            const wasUpdate = currentAlertId != null;
 
             // If creating new alert, get the alert ID from response and update button
             if (!currentAlertId) {
                 const data = await response.json();
                 currentAlertId = data.id;
+                console.log(`Alert created with ID: ${currentAlertId}`);
                 document.getElementById('alertButtonText').textContent = 'Modify Alert';
             }
+
+            // Ensure price refresh interval is running
+            if (currentItemName && currentItemUrlName) {
+                console.log('Ensuring price refresh interval is running...');
+                startPriceRefresh();
+            }
+
+            // Refresh prices immediately after creating/updating alert
+            console.log(`Calling refreshPrices immediately after alert ${wasUpdate ? 'update' : 'creation'}`);
+            await refreshPrices();
+            
+            // Force check for notifications immediately
+            setTimeout(async () => {
+                console.log('Force checking notifications after 2 seconds...');
+                await checkForTriggeredAlerts();
+            }, 2000);
 
             // Close modal and show success
             const modal = bootstrap.Modal.getInstance(document.getElementById('alertModal'));
             modal.hide();
             
-            const successMsg = currentAlertId ? 'Alert updated successfully!' : 'Alert created successfully!';
+            const successMsg = wasUpdate ? 'Alert updated successfully!' : 'Alert created successfully!';
             showSuccess(successMsg);
         } catch (error) {
             console.error('Error saving alert:', error);
