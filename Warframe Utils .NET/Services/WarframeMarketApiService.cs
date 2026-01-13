@@ -22,7 +22,8 @@ namespace Warframe_Utils_.NET.Services
         private readonly HttpClient _httpClient;
 
         // Base URL for all Warframe Market API requests
-        private const string ApiUrl = "https://api.warframe.market/v1/";
+        // Updated to v2 API: https://42bytes.notion.site/WFM-Api-v2-Documentation
+        private const string ApiUrl = "https://api.warframe.market/v2/";
 
         // JSON serializer options for flexible deserialization
         private readonly JsonSerializerOptions _jsonOptions = new()
@@ -59,6 +60,7 @@ namespace Warframe_Utils_.NET.Services
             try
             {
                 // Make HTTP GET request to the items endpoint
+                // v2 API: GET /v2/items returns items array in data field
                 var response = await _httpClient.GetAsync($"{ApiUrl}items");
 
                 // Ensure the HTTP request was successful (status code 200-299)
@@ -67,20 +69,48 @@ namespace Warframe_Utils_.NET.Services
                     // Read the response body as a string
                     var jsonResponse = await response.Content.ReadAsStringAsync();
 
-                    // Deserialize JSON string to ModsResponse object
-                    // PropertyNameCaseInsensitive allows JSON snake_case to map to C# PascalCase
-                    var result = JsonSerializer.Deserialize<ModsResponse>(jsonResponse, _jsonOptions);
-
-                    // Validate that deserialization was successful
-                    if (result == null || result.Payload == null || result.Payload.Mods == null)
+                    // v2 API Response structure: { apiVersion: "x.x.x", data: [...], error: null }
+                    // Parse JSON to extract the data array
+                    using (JsonDocument doc = JsonDocument.Parse(jsonResponse))
                     {
-                        throw new Exception("Failed to deserialize mods from API response - response structure invalid.");
+                        var dataElement = doc.RootElement.GetProperty("data");
+                        var itemsArray = new List<ModsResponse.Mod>();
+
+                        // Iterate through each item in the data array
+                        foreach (var item in dataElement.EnumerateArray())
+                        {
+                            // v2 API structure: item has i18n.en with name, icon, thumb
+                            var id = item.GetProperty("id").GetString();
+                            var slug = item.GetProperty("slug").GetString();
+                            var i18n = item.GetProperty("i18n").GetProperty("en");
+                            var name = i18n.GetProperty("name").GetString();
+                            var thumb = i18n.GetProperty("thumb").GetString();
+
+                            // Create a Mod object compatible with our existing model
+                            itemsArray.Add(new ModsResponse.Mod
+                            {
+                                ItemName = name,
+                                Thumb = thumb,
+                                UrlName = slug
+                            });
+                        }
+
+                        if (itemsArray.Count == 0)
+                        {
+                            throw new Exception("Failed to parse mods from API response - no items found.");
+                        }
+
+                        // Create a ModsResponse object to maintain compatibility with existing code
+                        var result = new ModsResponse
+                        {
+                            Payload = new ModsResponse.ModsPayload { Mods = itemsArray }
+                        };
+
+                        // Log the number of mods retrieved (for debugging)
+                        Console.WriteLine($"[INFO] Successfully loaded {result.Payload.Mods.Count} mods from Warframe Market API v2");
+
+                        return result;
                     }
-
-                    // Log the number of mods retrieved (for debugging)
-                    Console.WriteLine($"[INFO] Successfully loaded {result.Payload.Mods.Count} mods from Warframe Market API");
-
-                    return result;
                 }
                 else
                 {
@@ -127,7 +157,8 @@ namespace Warframe_Utils_.NET.Services
                 }
 
                 // Make HTTP GET request to the orders endpoint for the specific item
-                var response = await _httpClient.GetAsync($"{ApiUrl}items/{itemId}/orders");
+                // v2 API: Changed from /items/{itemId}/orders to /orders/item/{slug}
+                var response = await _httpClient.GetAsync($"{ApiUrl}orders/item/{itemId}");
 
                 if (response.IsSuccessStatusCode)
                 {

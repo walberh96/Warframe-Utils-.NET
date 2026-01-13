@@ -39,7 +39,20 @@ builder.Services.AddControllersWithViews();
 builder.Services.AddHttpClient<WarframeStatApiService>();
 
 // WarframeMarketApiService: Handles API calls to https://api.warframe.market/v1/
-builder.Services.AddHttpClient<WarframeMarketApiService>();
+// IMPORTANT: The Warframe Market API requires proper headers to prevent 403 Forbidden errors
+// Without User-Agent and Accept headers, the API will reject requests as potential automated abuse
+builder.Services.AddHttpClient<WarframeMarketApiService>()
+    .ConfigureHttpClient(client =>
+    {
+        // Set a descriptive User-Agent so the API knows this is a legitimate application
+        // Format: AppName/Version (Platform; +Website)
+        // This helps API providers identify and support the application
+        client.DefaultRequestHeaders.Add("User-Agent", 
+            "WarframeUtils/1.0 (ASP.NET Core 8.0; Windows; +https://github.com/)");
+        
+        // Add Accept header to indicate we expect JSON responses
+        client.DefaultRequestHeaders.Add("Accept", "application/json");
+    });
 
 // ============================================================================
 // BUILD & CONFIGURE HTTP PIPELINE
