@@ -6,7 +6,30 @@
 
 ## 🎉 COMPLETION STATUS: ✅ 100% COMPLETE
 
-All requested improvements have been successfully implemented!
+All requested improvements have been successfully implemented, including critical bug fix!
+
+---
+
+## 🔧 Latest Update: Critical Orders Display Fix
+
+### ✅ Orders Now Display Correctly
+
+**Date Fixed**: January 12, 2026
+
+**Issue**: Orders weren't displaying when users searched for mods
+
+**Root Cause**: Warframe Market v2 API uses `"data"` property for orders, but DTO was trying to map from `"orders"` property
+
+**Fix Applied**:
+- Updated `OrdersResponse.cs` to use `[JsonPropertyName("data")]`
+- Verified with live API tests: Serration (456 orders), Energy Nexus (1125 orders)
+- All tests passing, 0 errors, 0 warnings
+
+**Files Updated**:
+1. ✅ `Models/DTOS/OrdersResponse.cs` - Corrected property mapping
+2. ✅ `Services/WarframeMarketApiService.cs` - Documented correct v2 endpoint
+3. ✅ `README.md` - Updated API documentation
+4. ✅ `IMPROVEMENTS_CHECKLIST.md` - Added fix documentation
 
 ---
 

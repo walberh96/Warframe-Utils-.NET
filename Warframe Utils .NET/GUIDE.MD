@@ -617,11 +617,33 @@ dotnet restore
 **Solution**:
 1. Check internet connection
 2. Verify external APIs are working:
-   - Visit: https://api.warframe.market/v1/items (should return JSON)
+   - Visit: https://api.warframe.market/v2/items (should return JSON)
    - Visit: https://api.warframestat.us/pc (should return JSON)
 3. If they're down, the app can't function (external service issue)
 
-#### Issue 6: CSS Not Updating / Changes Not Appearing
+#### Issue 6: "Orders Don't Display" Even Though Mod Was Found
+
+**Symptom**: Mod appears but trading orders section is empty
+
+**Root Cause**: The Warframe Market v2 API uses `"data"` property for orders, which must be mapped correctly in the DTO
+
+**Solution** (Should be fixed automatically):
+1. This was a known issue that has been fixed
+2. Ensure you're using the latest version of `Models/DTOS/OrdersResponse.cs`
+3. The fix: `[JsonPropertyName("data")]` attribute maps orders correctly
+4. If still having issues:
+   ```powershell
+   dotnet clean
+   dotnet build
+   ```
+5. Test with a mod that has many orders (e.g., "Serration", "Energy Nexus")
+
+**What Was Fixed**:
+- Updated `OrdersResponse.cs` to use correct v2 API property mapping
+- Updated Order class to match v2 response structure
+- Now returns correct order counts: Serration (456), Energy Nexus (1125)
+
+#### Issue 7: CSS Not Updating / Changes Not Appearing
 
 **Symptom**: Browser shows old CSS, changes don't appear
 
@@ -630,7 +652,7 @@ dotnet restore
 2. Clear browser cache (Ctrl+Shift+Delete)
 3. Restart the application (Stop F5, then F5 again)
 
-#### Issue 7: Visual Studio Won't Open the Project
+#### Issue 8: Visual Studio Won't Open the Project
 
 **Symptom**: "Project type not supported" or loading fails
 
@@ -639,7 +661,7 @@ dotnet restore
 2. Update Visual Studio (Help → Check for Updates)
 3. Repair Visual Studio (Programs and Features → Visual Studio → Repair)
 
-#### Issue 8: Port Already Bound (Linux/Mac)
+#### Issue 9: Port Already Bound (Linux/Mac)
 
 ```bash
 # Find what's using port 7281

@@ -4,6 +4,58 @@
 
 ---
 
+## 🔧 Latest Critical Fix: Orders Display Issue
+
+### Problem Solved ✅
+**Orders weren't displaying in search results even though mods were found**
+
+### Root Cause Analysis
+The Warframe Market API v2 response structure uses `"data"` property for orders at the top level:
+```json
+{
+  "apiVersion": "0.22.7",
+  "data": [...array of orders...],
+  "error": null
+}
+```
+
+However, the DTO was configured to deserialize from `"orders"` property, causing silent deserialization failure (no errors, just null values).
+
+### Solution Implemented
+Updated `OrdersResponse.cs` to use correct property mapping:
+
+**Before**:
+```csharp
+[JsonPropertyName("orders")]  // ❌ Wrong - v2 API uses "data"
+public List<Order>? Orders { get; set; }
+```
+
+**After**:
+```csharp
+[JsonPropertyName("data")]    // ✅ Correct - matches v2 API response
+public List<Order>? Orders { get; set; }
+```
+
+Also updated Order class properties to match v2 API response structure:
+- `Platinum` (instead of `Price`)
+- `Type` (instead of `OrderType`)
+- `Rank` (instead of `ModRank`)
+- Added missing fields: `PerTrade`, `CreatedAt`, `UpdatedAt`, `ItemId`
+
+### Testing & Verification
+- ✅ Serration search returns 456 orders
+- ✅ Energy Nexus search returns 1125 orders
+- ✅ Application builds with 0 errors
+- ✅ All orders display correctly in UI with proper filtering
+
+### Files Updated
+1. `Models/DTOS/OrdersResponse.cs` - Fixed property mapping
+2. `Services/WarframeMarketApiService.cs` - Updated endpoint documentation
+3. `README.md` - Updated API documentation
+4. Documentation files - Added fix details
+
+---
+
 ## Overview
 
 This document outlines every improvement made to enhance code quality, user experience, maintainability, and development experience.

@@ -34,10 +34,12 @@ A web-based utility application built with ASP.NET Core 8.0 designed to help War
 
 **Key Features**:
 - Real-time mod price comparison
-- Live player trading orders with player status
+- Live player trading orders with player status and activity
 - Game status monitoring (Void Trader, Cetus Cycles, Orb Vallis, Deimos)
 - Search with autocomplete suggestions
 - User identity/authentication system (via ASP.NET Identity)
+- Dark mode support for comfortable viewing
+- Full Warframe Market v2 API integration with proper response mapping
 
 ---
 
@@ -52,6 +54,10 @@ A web-based utility application built with ASP.NET Core 8.0 designed to help War
 | **ASP.NET Identity** | 8.0.15 | User authentication and authorization |
 | **Bootstrap 5** | (via CDN) | Frontend UI framework |
 | **jQuery** | (via CDN) | JavaScript DOM manipulation |
+| **System.Text.Json** | Built-in | JSON serialization for API responses |
+| **HttpClient** | Built-in | External API communication (connection pooling) |
+| **Warframe Market API** | v2 | Live market and trading order data |
+| **Warframe Status API** | Current | Game status and event cycles |
 
 ---
 
@@ -194,18 +200,29 @@ public WarframeMarketApiService(HttpClient httpClient)
 - **Purpose**: Fetches all trading orders for a specific item
 - **Parameters**:
   - `itemId`: URL-safe name of the item (e.g., "energy_nexus")
-- **Endpoint**: `GET https://api.warframe.market/v1/items/{itemId}/orders`
+- **Endpoint**: `GET https://api.warframe.market/v2/orders/item/{itemId}`
 - **Response Type**: `OrdersResponse` containing list of active orders with pricing and seller info
-- **Error Handling**: Throws exception if HTTP request or deserialization fails
+- **Response Structure**: 
+  ```json
+  {
+    "apiVersion": "0.22.7",
+    "data": [ ... array of Order objects ... ],
+    "error": null
+  }
+  ```
+- **Key Implementation Detail**: The v2 API returns orders in the `"data"` property, not `"orders"`. The `OrdersResponse` DTO uses `[JsonPropertyName("data")]` to properly map this response.
+- **Error Handling**: Throws exception if HTTP request or deserialization fails; returns empty list on null response
 - **Use Case**: When user searches for a specific mod, shows current market prices and available sellers
+- **Filtering**: The view filters to show only "sell" orders from players with "ingame" status to show active traders
 
 ##### `GetItemAsync(string itemId) : Task<ModDetailResponse>`
 - **Purpose**: Fetches detailed information about a specific item
 - **Parameters**:
   - `itemId`: URL-safe name of the item
-- **Endpoint**: `GET https://api.warframe.market/v1/items/{itemId}`
+- **Endpoint**: `GET https://api.warframe.market/v2/item/{itemId}`
 - **Response Type**: `ModDetailResponse` containing item set details (rarity, trading tax, tags, description, wiki link, etc.)
-- **Error Handling**: Throws exception if request or deserialization fails
+- **Response Structure**: Uses payload wrapper pattern with nested Item object
+- **Error Handling**: Throws exception if request or deserialization fails; returns null on error
 - **Use Case**: Displays mod description, trading tax, rarity, and other metadata on the search results page
 
 #### [WarframeStatApiService.cs](Services/WarframeStatApiService.cs)
@@ -281,30 +298,37 @@ public WarframeStatApiService(HttpClient httpClient)
 ##### `OrdersResponse`
 - **Purpose**: Top-level container for trading orders API response
 - **Properties**:
-  - `Payload : OrdersPayload` - Contains list of orders
+  - `ApiVersion : string` - API version string (e.g., "0.22.7")
+  - `Orders : List<Order>?` - List of trading orders for an item
+  - `Error : object?` - Error information (null if successful)
 
-##### `OrdersResponse.OrdersPayload`
-- **Purpose**: Container for the list of orders
-- **Properties**:
-  - `Orders : List<Order>` - List of trading orders for an item
+**Important Note**: The v2 API response uses `"data"` property name (mapped to `Orders`), not `"orders"`. The DTO uses `[JsonPropertyName("data")]` attribute to properly deserialize responses from the endpoint.
 
 ##### `OrdersResponse.Order`
 - **Purpose**: Individual trading order from a player
 - **Properties**:
+  - `Platinum : int` - Price per unit in Platinum (in-game currency)
   - `Quantity : int` - Number of items available
-  - `Price : int` - Cost in Platinum (in-game currency)
-  - `OrderType : string` - "sell" or "buy"
+  - `Type : string` - "sell" or "buy" order type
   - `User : User` - Information about the seller/buyer
   - `Visible : bool` - Whether order is active and visible
-  - `ModRank : int` - Rank of the mod being sold (0-10 typically)
-- **UI Display**: Shown in table format, filtered by sell orders only from online players
+  - `Rank : int` - Rank of the mod being sold (0-10 typically)
+  - `PerTrade : int` - Items included per trade transaction
+  - `CreatedAt : DateTime` - When the order was created
+  - `UpdatedAt : DateTime` - When the order was last updated
+- **UI Display**: Shown in table format, filtered by sell orders only from players with "ingame" status
 
 ##### `OrdersResponse.User`
 - **Purpose**: Information about the player making the order
 - **Properties**:
-  - `InGameName : string` - Warframe username
-  - `Platform : string` - PC/PS4/Xbox/etc
-  - `Status : string` - "ingame", "offline", or "away"
+  - `Id : string` - Unique user identifier
+  - `IngameName : string` - Warframe username (displayed in table)
+  - `Slug : string` - URL-safe username
+  - `Status : string` - "ingame", "offline", or "away" (filtered to show only "ingame")
+  - `Avatar : string` - Profile avatar image URL
+  - `Reputation : int` - Player's market reputation score
+  - `Platform : string` - PC/PS4/Xbox/Switch
+  - `Activity : DateTime` - Last activity timestamp
 - **Usage**: Username can be copied to clipboard via UI button for direct messaging
 
 ---

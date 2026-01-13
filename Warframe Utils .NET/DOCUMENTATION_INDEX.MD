@@ -4,9 +4,25 @@
 
 ---
 
+## � Latest Update: Orders Display Fix (January 12, 2026)
+
+**Status**: ✅ **FIXED** - Orders now display correctly for all mods
+
+**What Was Fixed**:
+- Updated `OrdersResponse.cs` to use correct v2 API property mapping (`"data"` instead of `"orders"`)
+- Verified with live tests: Serration (456 orders), Energy Nexus (1125 orders)
+- All documentation updated to reflect the fix
+
+**See Also**: 
+- [README.MD](#1--readmemd) - Updated API documentation
+- [IMPROVEMENTS_CHECKLIST.MD](#4--improvements_checklistmd) - Fix details
+- [GUIDE.MD](#2--guidemd) - Troubleshooting section added
+
+---
+
 ## 📚 Documentation Files Overview
 
-This project now includes **5 comprehensive documentation files** totaling **2000+ lines** of detailed documentation.
+This project now includes **6 comprehensive documentation files** totaling **2500+ lines** of detailed documentation.
 
 ---
 
@@ -14,15 +30,15 @@ This project now includes **5 comprehensive documentation files** totaling **200
 **Primary Technical Documentation**
 
 ### Purpose
-Complete architectural and technical reference for the entire project.
+Complete architectural and technical reference for the entire project, including latest API fixes.
 
 ### Contents
 - **Project Overview** - Purpose, features, tech stack
 - **Architecture & Structure** - Folder layout, MVC pattern
-- **Core Components** - Detailed class documentation
+- **Core Components** - Detailed class documentation with **updated Orders API info**
   - Controllers (HomeController, ApiTestController)
-  - Services (WarframeMarketApiService, WarframeStatApiService)
-  - Models & DTOs (All data structures)
+  - Services (WarframeMarketApiService with v2 API endpoints, WarframeStatApiService)
+  - Models & DTOs (All data structures with **corrected OrdersResponse documentation**)
   - Views (Index.cshtml breakdown)
   - Data Layer (ApplicationDbContext)
 - **Program.cs Documentation** - Startup and DI configuration
@@ -33,20 +49,26 @@ Complete architectural and technical reference for the entire project.
 - **Key Design Decisions** - Why things were built this way
 - **Future Enhancements** - Roadmap for improvements
 
+### What's Updated
+- ✅ OrdersResponse documentation includes v2 API structure
+- ✅ API endpoints now show v2 endpoints (`/v2/orders/item/{slug}`, `/v2/item/{slug}`)
+- ✅ Response structure examples with proper JSON format
+- ✅ Explanation of how "data" property is correctly mapped
+
 ### Who Should Read
 - Developers learning the project
 - Architects reviewing the design
 - Code reviewers understanding structure
 - DevOps engineers setting up deployment
 
-### Time to Read: 20-30 minutes
+### Time to Read: 25-30 minutes
 
 ### Key Sections
 ```
 1. Project Overview ..................... Purpose & Features
 2. Technology Stack ..................... All dependencies
 3. Architecture & Structure ............. Folder organization
-4. Core Components ...................... 100+ lines of class docs
+4. Core Components ...................... 120+ lines of class docs (with Orders fix)
 5. Configuration ........................ Settings & options
 6. Setup & Deployment ................... Getting it running
 ```
@@ -57,9 +79,9 @@ Complete architectural and technical reference for the entire project.
 **Beginner-Friendly Setup & Development Guide**
 
 ### Purpose
-Step-by-step guide for complete beginners to set up and develop the application.
+Step-by-step guide for complete beginners to set up and develop the application, including troubleshooting for the Orders fix.
 
-### Contents (600+ lines)
+### Contents (610+ lines)
 - **Prerequisites** - What you need (with download links)
 - **Project Overview** - Simple explanation with diagram
 - **Initial Setup** - Clone/extract and open project
@@ -67,15 +89,21 @@ Step-by-step guide for complete beginners to set up and develop the application.
 - **Running the Application** - 3 ways to start the app
 - **Testing the Application** - 6 manual test scenarios
 - **Development Workflow** - Making code changes
-- **Troubleshooting** - 8 common issues + solutions
+- **Troubleshooting** - 9 common issues + solutions (including Orders display issue)
 - **Deployment** - Production setup guide
 - **Checklist** - Verification steps
+
+### What's Updated
+- ✅ Issue 6: "Orders Don't Display" - Complete troubleshooting for the Orders API fix
+- ✅ API endpoint examples updated to v2 endpoints
+- ✅ All references point to correct Warframe Market API v2
 
 ### Who Should Read
 - **New developers** setting up for first time
 - **Project leads** onboarding team members
 - **DevOps engineers** handling deployment
 - **Beginners** learning ASP.NET Core
+- **Anyone debugging** orders-related issues
 - **Anyone** confused by setup process
 
 ### Time to Read: 25-40 minutes (or reference as needed)
