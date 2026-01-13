@@ -310,5 +310,82 @@ namespace Warframe_Utils_.NET.Services
                 throw new Exception($"Network error while fetching item details for '{itemId}'.", ex);
             }
         }
+
+        /// <summary>
+        /// GetItemPrice - Gets the current average price of an item by fetching its orders.
+        /// Calculates average of the lowest sell orders.
+        /// </summary>
+        /// <param name="itemId">URL-safe item identifier (e.g., "energy_nexus")</param>
+        /// <returns>Average price of the item, or null if not available</returns>
+        public async Task<decimal?> GetItemPrice(string itemId)
+        {
+            try
+            {
+                var orders = await GetAllOrdersAsync(itemId);
+                
+                if (orders?.Orders == null || orders.Orders.Count == 0)
+                {
+                    return null;
+                }
+
+                // Get sell orders (ascending price) and take lowest prices
+                var sellOrders = orders.Orders
+                    .Where(o => o.Type?.ToLower() == "sell")
+                    .OrderBy(o => o.Platinum)
+                    .Take(5) // Average of 5 lowest prices
+                    .ToList();
+
+                if (!sellOrders.Any())
+                {
+                    return null;
+                }
+
+                var averagePrice = (decimal)sellOrders.Average(o => o.Platinum);
+                return averagePrice;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[ERROR] Failed to get price for item '{itemId}': {ex.Message}");
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// SearchAndGetPrice - Searches for an item by name and retrieves its price.
+        /// This is a fallback method when item ID is not available.
+        /// </summary>
+        /// <param name="itemName">The name of the item to search for</param>
+        /// <returns>Price of the item, or null if not found</returns>
+        public async Task<decimal?> SearchAndGetPrice(string itemName)
+        {
+            try
+            {
+                // First, get all mods/items to find a match
+                var allMods = await GetAllModsAsync();
+                
+                if (allMods?.Payload?.Mods == null)
+                {
+                    return null;
+                }
+
+                // Search for the item (case-insensitive, partial match)
+                var matchingMod = allMods.Payload.Mods
+                    .FirstOrDefault(m => m.ItemName != null && 
+                        m.ItemName.Contains(itemName, StringComparison.OrdinalIgnoreCase));
+
+                if (matchingMod == null || string.IsNullOrEmpty(matchingMod.UrlName))
+                {
+                    return null;
+                }
+
+                // Get the price for the matching item
+                return await GetItemPrice(matchingMod.UrlName);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[ERROR] Failed to search and get price for '{itemName}': {ex.Message}");
+                return null;
+            }
+        }
     }
 }

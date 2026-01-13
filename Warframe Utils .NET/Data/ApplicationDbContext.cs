@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
+using Warframe_Utils_.NET.Models;
 
 namespace Warframe_Utils_.NET.Data
 {
@@ -12,10 +13,11 @@ namespace Warframe_Utils_.NET.Data
     /// - User-to-role mappings (AspNetUserRoles)
     /// - Claims, tokens, and logins tables
     /// 
-    /// This application doesn't currently use additional custom tables beyond Identity,
-    /// but the structure is in place to add them if needed in the future.
+    /// Custom tables for Price Alert System:
+    /// - PriceAlerts: User price monitoring alerts
+    /// - AlertNotifications: Notifications when alerts are triggered
     /// 
-    /// Database: SQL Server LocalDB (development) or production SQL Server
+    /// Database: PostgreSQL
     /// Connection String: Configured in appsettings.json
     /// </summary>
     public class ApplicationDbContext : IdentityDbContext
@@ -25,7 +27,7 @@ namespace Warframe_Utils_.NET.Data
         /// 
         /// The framework automatically provides DbContextOptions via dependency injection.
         /// Options include:
-        /// - Database provider (SQL Server)
+        /// - Database provider (PostgreSQL)
         /// - Connection string
         /// - Other configuration (migrations, logging, etc.)
         /// </summary>
@@ -38,32 +40,68 @@ namespace Warframe_Utils_.NET.Data
         // ============================================================================
         // DATABASE TABLES (DbSets)
         // ============================================================================
-        // Currently, only Identity tables are used (inherited from IdentityDbContext)
-        
-        // To add custom tables in the future, add DbSet properties here:
-        // Example:
-        // public DbSet<UserFavorite>? UserFavorites { get; set; }
-        // public DbSet<PriceHistory>? PriceHistories { get; set; }
+        /// <summary>
+        /// Price alerts created by users to monitor item prices
+        /// </summary>
+        public DbSet<PriceAlert> PriceAlerts { get; set; }
+
+        /// <summary>
+        /// Notifications sent to users when price alerts are triggered
+        /// </summary>
+        public DbSet<AlertNotification> AlertNotifications { get; set; }
 
         // ============================================================================
         // MODEL CONFIGURATION
         // ============================================================================
-        // Override OnModelCreating to configure table mappings, constraints, etc.
-        // Example usage:
-        /*
         protected override void OnModelCreating(ModelBuilder builder)
         {
             base.OnModelCreating(builder);
 
-            // Configure custom tables
-            builder.Entity<UserFavorite>()
-                .HasKey(uf => new { uf.UserId, uf.ModUrl });
+            // Configure PriceAlert table
+            builder.Entity<PriceAlert>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                
+                entity.Property(e => e.ItemName)
+                    .IsRequired()
+                    .HasMaxLength(500);
 
-            // Add indexes for better query performance
-            builder.Entity<PriceHistory>()
-                .HasIndex(ph => ph.ModUrl)
-                .IsUnique(false);
+                entity.Property(e => e.ItemId)
+                    .HasMaxLength(500);
+
+                entity.Property(e => e.UserId)
+                    .IsRequired();
+
+                // Index for quick lookup by user
+                entity.HasIndex(e => e.UserId);
+
+                // Index for active alerts (for background service)
+                entity.HasIndex(e => new { e.IsActive, e.IsTriggered });
+            });
+
+            // Configure AlertNotification table
+            builder.Entity<AlertNotification>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+
+                entity.Property(e => e.UserId)
+                    .IsRequired();
+
+                entity.Property(e => e.Message)
+                    .IsRequired();
+
+                // Foreign key relationship
+                entity.HasOne(e => e.PriceAlert)
+                    .WithMany()
+                    .HasForeignKey(e => e.PriceAlertId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                // Index for quick lookup by user
+                entity.HasIndex(e => e.UserId);
+
+                // Index for unread notifications
+                entity.HasIndex(e => new { e.UserId, e.IsRead });
+            });
         }
-        */
     }
 }

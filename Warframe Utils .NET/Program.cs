@@ -14,10 +14,10 @@ var builder = WebApplication.CreateBuilder(args);
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") 
     ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
 
-// Register Entity Framework Core with SQL Server provider
+// Register Entity Framework Core with PostgreSQL provider
 // This configures the ApplicationDbContext to use the specified connection string
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseSqlServer(connectionString));
+    options.UseNpgsql(connectionString));
 
 // Enable detailed error pages for database operations during development
 // Shows helpful information about database-related exceptions
@@ -53,6 +53,10 @@ builder.Services.AddHttpClient<WarframeMarketApiService>()
         // Add Accept header to indicate we expect JSON responses
         client.DefaultRequestHeaders.Add("Accept", "application/json");
     });
+
+// Register the background service for checking price alerts
+// This service runs continuously in the background and checks active alerts every 5 minutes
+builder.Services.AddHostedService<PriceAlertCheckService>();
 
 // ============================================================================
 // BUILD & CONFIGURE HTTP PIPELINE
