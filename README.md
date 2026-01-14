@@ -1,28 +1,324 @@
-# Warframe Utils .NET
+# Warframe Utils .NET - Full Stack Application
 
-A web-based utility application built with ASP.NET Core 8.0 designed to help Warframe players access real-time market prices, game status information, and mod trading data. The application integrates with two external APIs: Warframe Market API and Warframe Status API.
+A modern full-stack web application for Warframe players featuring real-time market prices, trading orders, game status monitoring, and price alert notifications.
 
----
+## 🌟 Project Overview
 
-## Table of Contents
-
-1. [Project Overview](#project-overview)
-2. [Technology Stack](#technology-stack)
-3. [Architecture & Structure](#architecture--structure)
-4. [Core Components](#core-components)
-   - [Controllers](#controllers)
-   - [Services](#services)
-   - [Models & DTOs](#models--dtos)
-   - [Views](#views)
-   - [Data Layer](#data-layer)
-5. [Detailed Class Documentation](#detailed-class-documentation)
-6. [Configuration](#configuration)
-7. [User Interface Features](#user-interface-features)
-8. [Setup & Deployment](#setup--deployment)
+**Warframe Utils** helps Warframe players by providing:
+- 🔍 Real-time market search and price comparison
+- 📊 Live trading orders with player status
+- 🎮 Game status monitoring (Cetus, Void Trader, Arbitration)
+- 🔔 Price alert system with background monitoring
+- 🌙 Modern dark mode interface
+- 📱 Fully responsive design
 
 ---
 
-## Project Overview
+## 🏗️ Architecture
+
+This is a **decoupled full-stack application**:
+
+### Backend (.NET Core 8.0)
+- **Location**: `Warframe Utils .NET/`
+- **Technology**: ASP.NET Core 8.0 with Entity Framework Core
+- **Database**: PostgreSQL
+- **APIs**: RESTful API controllers
+- **Services**: Background price monitoring service
+
+### Frontend (Next.js 14)
+- **Location**: `warframe-frontend/`
+- **Technology**: Next.js 14 with TypeScript
+- **Styling**: Tailwind CSS + shadcn/ui
+- **Features**: Real-time updates, theme switching, responsive design
+
+---
+
+## 🚀 Quick Start
+
+### Prerequisites
+
+**Backend:**
+- .NET 8.0 SDK
+- PostgreSQL 14 or later
+- Visual Studio 2022 or VS Code
+
+**Frontend:**
+- Node.js 18.17 or later
+- npm or yarn
+
+### Installation Steps
+
+#### 1. Setup Backend
+
+```bash
+# Navigate to backend directory
+cd "Warframe Utils .NET"
+
+# Restore dependencies
+dotnet restore
+
+# Update appsettings.json with your PostgreSQL connection string
+# Edit appsettings.json:
+# "DefaultConnection": "Host=localhost;Database=warframe_utils;Username=postgres;Password=yourpassword"
+
+# Run migrations
+dotnet ef database update
+
+# Start the backend
+dotnet run
+```
+
+The backend will start on `https://localhost:5001` (or `http://localhost:5000`)
+
+#### 2. Setup Frontend
+
+```bash
+# Navigate to frontend directory
+cd warframe-frontend
+
+# Install dependencies
+npm install
+
+# Start the development server
+npm run dev
+```
+
+The frontend will start on `http://localhost:3000`
+
+#### 3. Access the Application
+
+Open your browser and visit:
+```
+http://localhost:3000
+```
+
+
+---
+
+## 📁 Project Structure
+
+```
+Warframe-Utils-.NET/
+├── warframe-frontend/              # Next.js Frontend Application
+│   ├── src/
+│   │   ├── app/                    # Next.js pages (App Router)
+│   │   ├── components/             # React components
+│   │   │   ├── ui/                 # shadcn/ui components
+│   │   │   ├── navbar.tsx
+│   │   │   ├── game-status-section.tsx
+│   │   │   ├── search-section.tsx
+│   │   │   ├── NotificationBell.tsx
+│   │   │   └── theme-provider.tsx
+│   │   ├── hooks/                  # Custom React hooks
+│   │   │   ├── use-toast.ts
+│   │   │   └── useNotifications.ts
+│   │   ├── contexts/               # React contexts
+│   │   │   └── AuthContext.tsx
+│   │   └── lib/                    # Utilities
+│   │       └── utils.ts
+│   ├── package.json
+│   └── README.md
+│
+├── Warframe Utils .NET/            # .NET Backend Application
+│   ├── Controllers/
+│   │   ├── HomeController.cs
+│   │   └── API/
+│   │       ├── AlertController.cs
+│   │       ├── AuthController.cs
+│   │       ├── GameStatusController.cs
+│   │       ├── SearchController.cs
+│   │       ├── UserController.cs
+│   │       └── ApiTestController.cs
+│   ├── Services/
+│   │   ├── WarframeMarketApiService.cs
+│   │   ├── WarframeStatApiService.cs
+│   │   ├── PriceAlertCheckService.cs
+│   │   └── DevEmailSender.cs
+│   ├── Models/
+│   │   ├── PriceAlert.cs
+│   │   ├── AlertNotification.cs
+│   │   ├── DTOS/
+│   │   │   ├── AlertDtos.cs
+│   │   │   ├── ModDetailResponse.cs
+│   │   │   ├── ModsResponse.cs
+│   │   │   ├── OrdersResponse.cs
+│   │   │   └── WarframeStatus.cs
+│   │   └── ViewModels/
+│   ├── Data/
+│   │   ├── ApplicationDbContext.cs
+│   │   └── Migrations/
+│   ├── Program.cs
+│   └── appsettings.json
+│
+├── README.md                       # This file
+├── README_ALERTS.md                # Price alert system documentation
+└── QUICK_START_ALERTS.md          # Quick setup guide
+```
+
+---
+
+## 🎯 Features
+
+### 1. Market Search
+- Search for any Warframe mod or item
+- View live buy and sell orders
+- See player online status
+- Sort by price and quantity
+- Real-time data from Warframe Market API
+
+### 2. Game Status Dashboard
+Real-time monitoring of:
+- **Cetus Cycle**: Day/Night cycle with time remaining
+- **Void Trader**: Baro Ki'Teer location and availability
+- **Venus Cycle**: Orb Vallis warm/cold cycle with time remaining
+
+### 3. Price Alert System
+- Create custom price alerts for any item
+- Background service checks prices every 30 seconds
+- Get notified when prices drop below your target (pop-up notifications)
+- Manage alerts through notification bell (create, modify, delete)
+- View all active alerts and triggered notifications in one place
+- Immediate price check on alert creation/modification
+
+### 4. Modern UI/UX
+- Beautiful gradient-based design with Warframe-inspired colors
+- Dark mode support with theme switching
+- Fully responsive (mobile, tablet, desktop)
+- Smooth animations and transitions
+- Toast notifications for user feedback
+- Loading states and error handling
+- Autocomplete search suggestions
+- Comprehensive notification management panel
+
+---
+
+## 🔌 API Documentation
+
+### Backend API Endpoints
+
+#### Game Status
+```
+GET /api/GameStatus
+```
+Returns current game status (Cetus Cycle, Void Trader, Venus Cycle)
+
+#### Market Search
+```
+GET /api/Search?modName={itemName}
+```
+Search for an item and get details with orders
+
+```
+GET /api/Search/items
+```
+Get all available items for autocomplete
+
+#### Price Alerts (Requires Authentication)
+```
+GET /api/Alert
+```
+Get all alerts for current user
+
+```
+POST /api/Alert
+Body: { itemName, alertPrice, itemId? }
+```
+Create a new price alert
+
+```
+PUT /api/Alert/{id}
+Body: { alertPrice }
+```
+Update an existing price alert
+
+```
+DELETE /api/Alert/{id}
+```
+Delete a price alert
+
+```
+GET /api/Alert/notifications/unread
+```
+Get all unread notifications for current user
+
+```
+POST /api/Alert/notifications/{id}/read
+```
+Mark a notification as read
+
+---
+
+## 🛠️ Technology Stack
+
+### Backend
+| Technology | Version | Purpose |
+|------------|---------|---------|
+| .NET Core | 8.0 | Web framework |
+| Entity Framework Core | 8.0.15 | ORM |
+| PostgreSQL | 14+ | Database (via Npgsql) |
+| ASP.NET Identity | 8.0.15 | Authentication |
+| HttpClient | Built-in | External API calls |
+| Background Services | Built-in | Price alert monitoring |
+
+### Frontend
+| Technology | Version | Purpose |
+|------------|---------|---------|
+| Next.js | 14.2.3 | React framework |
+| React | 18.3.1 | UI library |
+| TypeScript | 5.x | Type safety |
+| Tailwind CSS | 3.4.3 | Styling |
+| shadcn/ui | Latest | UI components |
+| Radix UI | Latest | Accessible primitives |
+| Lucide React | 0.378.0 | Icons |
+| next-themes | 0.3.0 | Theme management |
+| class-variance-authority | 0.7.1 | Component variants |
+
+---
+
+## 🔧 Configuration
+
+### Backend Configuration
+
+Edit `appsettings.json`:
+
+```json
+{
+  "ConnectionStrings": {
+    "DefaultConnection": "Host=localhost;Database=warframe_utils;Username=postgres;Password=yourpassword"
+  }
+}
+```
+
+### Frontend Configuration
+
+Edit `next.config.mjs` to change backend URL:
+
+```javascript
+async rewrites() {
+  return [
+    {
+      source: '/api/:path*',
+      destination: 'http://localhost:5000/api/:path*',
+    },
+  ];
+}
+```
+
+---
+
+## 📚 Additional Documentation
+
+- [**README_ALERTS.md**](README_ALERTS.md) - Price Alert System Documentation
+- [**QUICK_START_ALERTS.md**](QUICK_START_ALERTS.md) - Quick Setup Guide
+- [**Frontend README**](warframe-frontend/README.md) - Next.js Frontend Guide
+
+---
+
+**Built with ❤️ for the Warframe community**
+
+**Tech Stack**: Next.js 14 • TypeScript • .NET Core 8.0 • PostgreSQL • Tailwind CSS • shadcn/ui
+
+
 
 **Purpose**: This application provides Warframe players with a convenient interface to:
 - Search for mods and items from the Warframe market
@@ -33,13 +329,16 @@ A web-based utility application built with ASP.NET Core 8.0 designed to help War
 **Target Users**: Warframe players interested in market trading information
 
 **Key Features**:
-- Real-time mod price comparison
+- Real-time mod price comparison with item images and descriptions
 - Live player trading orders with player status and activity
-- Game status monitoring (Void Trader, Cetus Cycles, Orb Vallis, Deimos)
+- Game status monitoring (Cetus Cycle, Void Trader, Venus Cycle)
 - Search with autocomplete suggestions
+- Price alert system with background monitoring (30-second checks)
+- Notification system with pop-up alerts and management panel
 - User identity/authentication system (via ASP.NET Identity)
-- Dark mode support for comfortable viewing
+- Dark mode support with theme switching
 - Full Warframe Market v2 API integration with proper response mapping
+- Responsive design optimized for all devices
 
 ---
 
@@ -50,12 +349,16 @@ A web-based utility application built with ASP.NET Core 8.0 designed to help War
 | **.NET Framework** | 8.0 | Core framework for ASP.NET Core web application |
 | **ASP.NET Core** | 8.0 | Web application framework |
 | **Entity Framework Core** | 8.0.15 | ORM for database operations |
-| **SQL Server** | LocalDB | Database for user identity and app data |
+| **PostgreSQL** | 14+ | Database for user identity and app data (via Npgsql) |
 | **ASP.NET Identity** | 8.0.15 | User authentication and authorization |
-| **Bootstrap 5** | (via CDN) | Frontend UI framework |
-| **jQuery** | (via CDN) | JavaScript DOM manipulation |
+| **Next.js** | 14.2.3 | Frontend React framework |
+| **React** | 18.3.1 | UI library |
+| **TypeScript** | 5.x | Type safety |
+| **Tailwind CSS** | 3.4.3 | Utility-first CSS framework |
+| **shadcn/ui** | Latest | High-quality UI components |
 | **System.Text.Json** | Built-in | JSON serialization for API responses |
 | **HttpClient** | Built-in | External API communication (connection pooling) |
+| **Background Services** | Built-in | Continuous price monitoring |
 | **Warframe Market API** | v2 | Live market and trading order data |
 | **Warframe Status API** | Current | Game status and event cycles |
 

@@ -105,6 +105,68 @@ namespace Warframe_Utils_.NET.Controllers.API
 
             _logger.LogInformation($"User {userId} created price alert for {alert.ItemName} at price {alert.AlertPrice}");
 
+            // Immediately check if the alert should trigger
+            try
+            {
+                decimal? currentPrice = null;
+
+                // Try to get price by item ID first (more reliable)
+                if (!string.IsNullOrEmpty(alert.ItemId))
+                {
+                    currentPrice = await _marketApiService.GetItemPrice(alert.ItemId);
+                }
+
+                // Fallback: Try to search by item name
+                if (!currentPrice.HasValue && !string.IsNullOrEmpty(alert.ItemName))
+                {
+                    currentPrice = await _marketApiService.SearchAndGetPrice(alert.ItemName);
+                }
+
+                // Update the alert with the current price
+                alert.CurrentPrice = currentPrice;
+                alert.LastCheckedAt = DateTime.UtcNow;
+
+                // Check if price has fallen to or below the alert threshold
+                if (currentPrice.HasValue && currentPrice.Value <= alert.AlertPrice)
+                {
+                    _logger.LogWarning(
+                        $"Price alert immediately triggered for {alert.ItemName}: Current price {currentPrice} <= Alert price {alert.AlertPrice}");
+
+                    // Mark alert as triggered
+                    alert.IsTriggered = true;
+                    alert.TriggeredAt = DateTime.UtcNow;
+
+                    // Check if there's already an unread notification for this alert
+                    var existingUnreadNotification = await _context.AlertNotifications
+                        .AnyAsync(n => n.PriceAlertId == alert.Id && !n.IsRead);
+
+                    if (!existingUnreadNotification)
+                    {
+                        // Create notification for the user
+                        var notification = new AlertNotification
+                        {
+                            UserId = userId,
+                            PriceAlertId = alert.Id,
+                            Message = $"The price of {alert.ItemName} has dropped to {currentPrice.Value} platinum (alert threshold: {alert.AlertPrice})",
+                            TriggeredPrice = currentPrice.Value,
+                            CreatedAt = DateTime.UtcNow,
+                            IsRead = false
+                        };
+
+                        _context.AlertNotifications.Add(notification);
+                        _logger.LogWarning($"Notification created for alert {alert.Id}");
+                    }
+                }
+
+                _context.PriceAlerts.Update(alert);
+                await _context.SaveChangesAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error checking price immediately after creating alert for {alert.ItemName}");
+                // Don't fail the alert creation if price check fails - the background service will check it later
+            }
+
             return CreatedAtAction(nameof(GetAlert), new { id = alert.Id }, MapToDto(alert));
         }
 
@@ -124,12 +186,23 @@ namespace Warframe_Utils_.NET.Controllers.API
             if (alert == null)
                 return NotFound();
 
+            var priceChanged = dto.AlertPrice.HasValue && dto.AlertPrice.Value != alert.AlertPrice;
+            var wasTriggered = alert.IsTriggered;
+
             // Update allowed fields
             if (!string.IsNullOrWhiteSpace(dto.ItemName))
                 alert.ItemName = dto.ItemName.Trim();
 
             if (dto.AlertPrice.HasValue && dto.AlertPrice >= 0)
+            {
                 alert.AlertPrice = dto.AlertPrice.Value;
+                // If price changed, reset triggered status to allow re-checking
+                if (priceChanged)
+                {
+                    alert.IsTriggered = false;
+                    alert.TriggeredAt = null;
+                }
+            }
 
             if (dto.IsActive.HasValue)
                 alert.IsActive = dto.IsActive.Value;
@@ -140,6 +213,71 @@ namespace Warframe_Utils_.NET.Controllers.API
             await _context.SaveChangesAsync();
 
             _logger.LogInformation($"User {userId} updated price alert {id}");
+
+            // If price was changed, immediately check if the alert should trigger
+            if (priceChanged && alert.IsActive)
+            {
+                try
+                {
+                    decimal? currentPrice = null;
+
+                    // Try to get price by item ID first (more reliable)
+                    if (!string.IsNullOrEmpty(alert.ItemId))
+                    {
+                        currentPrice = await _marketApiService.GetItemPrice(alert.ItemId);
+                    }
+
+                    // Fallback: Try to search by item name
+                    if (!currentPrice.HasValue && !string.IsNullOrEmpty(alert.ItemName))
+                    {
+                        currentPrice = await _marketApiService.SearchAndGetPrice(alert.ItemName);
+                    }
+
+                    // Update the alert with the current price
+                    alert.CurrentPrice = currentPrice;
+                    alert.LastCheckedAt = DateTime.UtcNow;
+
+                    // Check if price has fallen to or below the alert threshold
+                    if (currentPrice.HasValue && currentPrice.Value <= alert.AlertPrice)
+                    {
+                        _logger.LogWarning(
+                            $"Price alert immediately triggered after update for {alert.ItemName}: Current price {currentPrice} <= Alert price {alert.AlertPrice}");
+
+                        // Mark alert as triggered
+                        alert.IsTriggered = true;
+                        alert.TriggeredAt = DateTime.UtcNow;
+
+                        // Check if there's already an unread notification for this alert
+                        var existingUnreadNotification = await _context.AlertNotifications
+                            .AnyAsync(n => n.PriceAlertId == alert.Id && !n.IsRead);
+
+                        if (!existingUnreadNotification)
+                        {
+                            // Create notification for the user
+                            var notification = new AlertNotification
+                            {
+                                UserId = userId,
+                                PriceAlertId = alert.Id,
+                                Message = $"The price of {alert.ItemName} has dropped to {currentPrice.Value} platinum (alert threshold: {alert.AlertPrice})",
+                                TriggeredPrice = currentPrice.Value,
+                                CreatedAt = DateTime.UtcNow,
+                                IsRead = false
+                            };
+
+                            _context.AlertNotifications.Add(notification);
+                            _logger.LogWarning($"Notification created for updated alert {alert.Id}");
+                        }
+                    }
+
+                    _context.PriceAlerts.Update(alert);
+                    await _context.SaveChangesAsync();
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, $"Error checking price immediately after updating alert for {alert.ItemName}");
+                    // Don't fail the update if price check fails - the background service will check it later
+                }
+            }
 
             return Ok(MapToDto(alert));
         }
@@ -195,6 +333,7 @@ namespace Warframe_Utils_.NET.Controllers.API
 
         /// <summary>
         /// Get all unread notifications for the current user
+        /// Also creates notifications for any triggered alerts that don't have one
         /// </summary>
         [HttpGet("notifications/unread")]
         public async Task<ActionResult<IEnumerable<AlertNotificationDto>>> GetUnreadNotifications()
@@ -203,6 +342,40 @@ namespace Warframe_Utils_.NET.Controllers.API
             if (userId == null)
                 return Unauthorized();
 
+            // First, check for triggered alerts that don't have notifications and create them
+            var triggeredAlertsWithoutNotifications = await _context.PriceAlerts
+                .Where(a => a.UserId == userId && a.IsTriggered && a.IsActive)
+                .ToListAsync();
+
+            foreach (var alert in triggeredAlertsWithoutNotifications)
+            {
+                var hasUnreadNotification = await _context.AlertNotifications
+                    .AnyAsync(n => n.PriceAlertId == alert.Id && !n.IsRead);
+
+                if (!hasUnreadNotification && alert.CurrentPrice.HasValue)
+                {
+                    // Create notification for this triggered alert
+                    var notification = new AlertNotification
+                    {
+                        UserId = userId,
+                        PriceAlertId = alert.Id,
+                        Message = $"The price of {alert.ItemName} has dropped to {alert.CurrentPrice.Value} platinum (alert threshold: {alert.AlertPrice})",
+                        TriggeredPrice = alert.CurrentPrice.Value,
+                        CreatedAt = DateTime.UtcNow,
+                        IsRead = false
+                    };
+
+                    _context.AlertNotifications.Add(notification);
+                    _logger.LogInformation($"Created missing notification for triggered alert {alert.Id} ({alert.ItemName})");
+                }
+            }
+
+            if (triggeredAlertsWithoutNotifications.Any())
+            {
+                await _context.SaveChangesAsync();
+            }
+
+            // Now fetch all unread notifications
             var notifications = await _context.AlertNotifications
                 .Where(n => n.UserId == userId && !n.IsRead)
                 .Include(n => n.PriceAlert)

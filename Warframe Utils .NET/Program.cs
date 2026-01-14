@@ -1,5 +1,7 @@
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity.UI.Services;
 using Microsoft.EntityFrameworkCore;
+using System.Text.Json;
 using Warframe_Utils_.NET.Data;
 using Warframe_Utils_.NET.Services;
 
@@ -24,14 +26,38 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
 builder.Services.AddDatabaseDeveloperPageExceptionFilter();
 
 // Register ASP.NET Identity for user authentication
-// Requires email confirmation before users can sign in
+// Email confirmation is disabled for development (set to false)
+// In production, implement a proper email service and set this to true
 // Uses ApplicationDbContext for storing user data and roles
 builder.Services.AddDefaultIdentity<IdentityUser>(options => 
-    options.SignIn.RequireConfirmedAccount = true)
+    options.SignIn.RequireConfirmedAccount = false)
     .AddEntityFrameworkStores<ApplicationDbContext>();
 
+// Configure authentication cookies for cross-origin requests (Next.js frontend)
+builder.Services.ConfigureApplicationCookie(options =>
+{
+    options.Cookie.SameSite = SameSiteMode.None; // Allow cross-origin
+    options.Cookie.SecurePolicy = CookieSecurePolicy.Always; // Require HTTPS
+    options.Cookie.HttpOnly = true; // Prevent XSS attacks
+    options.Events.OnRedirectToLogin = context =>
+    {
+        // For API requests, return 401 instead of redirecting to login page
+        if (context.Request.Path.StartsWithSegments("/api"))
+        {
+            context.Response.StatusCode = 401;
+            return Task.CompletedTask;
+        }
+        context.Response.Redirect(context.RedirectUri);
+        return Task.CompletedTask;
+    };
+});
+
 // Register MVC controllers and Razor views for server-side rendering
-builder.Services.AddControllersWithViews();
+builder.Services.AddControllersWithViews()
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
+    });
 
 // Register HTTP clients for external API services
 // These will be injected into controller constructors for dependency injection
@@ -57,6 +83,22 @@ builder.Services.AddHttpClient<WarframeMarketApiService>()
 // Register the background service for checking price alerts
 // This service runs continuously in the background and checks active alerts every 5 minutes
 builder.Services.AddHostedService<PriceAlertCheckService>();
+
+// Register email sender service (development version - logs to console)
+// For production, replace with a real email service implementation
+builder.Services.AddTransient<IEmailSender, DevEmailSender>();
+
+// Add CORS policy for Next.js frontend
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowNextJs", policy =>
+    {
+        policy.WithOrigins("http://localhost:3000", "http://localhost:3001")
+              .AllowAnyHeader()
+              .AllowAnyMethod()
+              .AllowCredentials();
+    });
+});
 
 // ============================================================================
 // BUILD & CONFIGURE HTTP PIPELINE
@@ -90,8 +132,15 @@ app.UseHttpsRedirection();
 // Enable serving static files from wwwroot directory (CSS, JavaScript, images, etc.)
 app.UseStaticFiles();
 
+// Enable CORS for Next.js frontend
+app.UseCors("AllowNextJs");
+
 // Enable routing - must be called before MapControllerRoute and MapRazorPages
 app.UseRouting();
+
+// Enable authentication - MUST come before authorization
+// This processes authentication cookies and sets User identity
+app.UseAuthentication();
 
 // Enable authorization - checks if users have permission to access resources
 app.UseAuthorization();

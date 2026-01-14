@@ -81,9 +81,11 @@ Welcome! This documentation covers the complete implementation of the Price Aler
 
 ### Key Files
 - **Models**: `Models/PriceAlert.cs`, `Models/AlertNotification.cs`
+- **DTOs**: `Models/DTOS/AlertDtos.cs`
 - **API**: `Controllers/API/AlertController.cs`
 - **Service**: `Services/PriceAlertCheckService.cs`
-- **UI**: `Pages/Alerts/Index.cshtml`
+- **Frontend UI**: `warframe-frontend/src/components/NotificationBell.tsx`
+- **Frontend Hook**: `warframe-frontend/src/hooks/useNotifications.ts`
 - **Database**: `Data/ApplicationDbContext.cs`, `Data/Migrations/`
 
 ### Database
@@ -92,29 +94,36 @@ Welcome! This documentation covers the complete implementation of the Price Aler
 - **Connection**: Update `appsettings.json` with your credentials
 
 ### API Endpoints
-- `GET /api/alert` - Get all alerts
-- `POST /api/alert` - Create alert
-- `PUT /api/alert/{id}` - Update alert
-- `DELETE /api/alert/{id}` - Delete alert
-- `GET /api/alert/notifications/unread` - Get notifications
+- `GET /api/Alert` - Get all alerts for current user
+- `POST /api/Alert` - Create alert (requires itemName, alertPrice, optional itemId)
+- `PUT /api/Alert/{id}` - Update alert price
+- `DELETE /api/Alert/{id}` - Delete alert
+- `GET /api/Alert/{id}` - Get specific alert
+- `GET /api/Alert/notifications/unread` - Get unread notifications
+- `POST /api/Alert/notifications/{id}/read` - Mark notification as read
 
 ### Features
 ✅ User-specific alerts
-✅ Real-time price checking
-✅ Automatic notifications
-✅ Complete API
-✅ Beautiful UI dashboard
+✅ Real-time price checking (30-second intervals)
+✅ Immediate price check on alert creation/modification
+✅ Automatic pop-up notifications
+✅ Notification management panel (bell icon)
+✅ Create, modify, and delete alerts
+✅ Complete REST API
+✅ Beautiful tabbed UI (Alerts/Notifications)
 ✅ Database persistence
+✅ Mark notifications as read
 
 ---
 
 ## 🔧 Technology Stack
 
-- **Framework**: ASP.NET Core 8.0
-- **Database**: PostgreSQL 12+
+- **Backend Framework**: ASP.NET Core 8.0
+- **Database**: PostgreSQL 14+ (via Npgsql)
 - **ORM**: Entity Framework Core 8.0.15
 - **Auth**: ASP.NET Core Identity
-- **UI**: Razor Pages + Bootstrap 5
+- **Frontend**: Next.js 14 + React 18 + TypeScript
+- **UI Components**: shadcn/ui + Radix UI + Tailwind CSS
 - **API**: RESTful with JSON
 
 ---
@@ -128,7 +137,7 @@ A: Yes. The system is configured for PostgreSQL. See setup guide for installatio
 A: Technically yes, but would need code changes. Currently configured for PostgreSQL.
 
 **Q: How often are prices checked?**
-A: Every 5 minutes. Configurable in `PriceAlertCheckService.cs`.
+A: Every 30 seconds by the background service. Also checked immediately when creating or updating an alert.
 
 **Q: Do alerts work when the app is offline?**
 A: No. Background service only runs while app is running.

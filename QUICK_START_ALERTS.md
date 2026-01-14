@@ -1,4 +1,52 @@
-# Price Alert System - Quick Start Guide
+# 🚀 Warframe Utils - Quick Start Guide
+
+**IMPORTANT UPDATE**: This project has been rebuilt with a modern Next.js frontend!
+
+---
+
+## 📌 What's New?
+
+Your Warframe Utils application now has:
+- ✨ **Modern Next.js 14 Frontend** - Beautiful, fast, and responsive
+- 🎨 **New UI** - Gradient design with dark mode support
+- ⚡ **Enhanced Performance** - Better user experience
+- 📱 **Mobile Optimized** - Works great on all devices
+
+---
+
+## 🎯 Quick Start (New Frontend)
+
+### 1. Setup Backend (if not done)
+```bash
+cd "Warframe Utils .NET"
+dotnet restore
+dotnet ef database update
+dotnet run
+```
+
+### 2. Setup Frontend
+```bash
+cd warframe-frontend
+npm install
+npm run dev
+```
+
+### 3. Access Application
+Open browser to: **http://localhost:3000**
+
+---
+
+## 📚 New Documentation
+
+For detailed setup instructions, see:
+- **[SETUP_GUIDE.md](SETUP_GUIDE.md)** - Complete setup guide
+- **[PROJECT_COMPLETE.md](PROJECT_COMPLETE.md)** - What's new and features
+- **[DEVELOPER_GUIDE.md](DEVELOPER_GUIDE.md)** - Developer reference
+- **[README.md](README.md)** - Main documentation
+
+---
+
+# Original Price Alert System Documentation
 
 ## ⚡ 5-Minute Setup
 

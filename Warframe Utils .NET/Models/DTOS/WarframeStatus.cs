@@ -124,6 +124,13 @@ namespace Warframe_Utils_.NET.Models.ViewModels
             /// </summary>
             [JsonPropertyName("isDay")]
             public bool isDay { get; set; }
+
+            /// <summary>
+            /// When the current cycle expires (ISO 8601 format)
+            /// Used to calculate time remaining in the current cycle
+            /// </summary>
+            [JsonPropertyName("expiry")]
+            public string expiry { get; set; }
         }
 
         /// <summary>
@@ -162,6 +169,13 @@ namespace Warframe_Utils_.NET.Models.ViewModels
             /// </summary>
             [JsonPropertyName("state")]
             public string state { get; set; }
+
+            /// <summary>
+            /// When the current cycle expires (ISO 8601 format)
+            /// Used to calculate time remaining in the current cycle
+            /// </summary>
+            [JsonPropertyName("expiry")]
+            public string expiry { get; set; }
         }
     }
 }

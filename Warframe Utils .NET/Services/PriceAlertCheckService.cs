@@ -9,14 +9,14 @@ namespace Warframe_Utils_.NET.Services
     /// Background service that periodically checks prices for active price alerts
     /// and creates notifications when prices fall to or below the alert threshold.
     /// 
-    /// Runs every 5 minutes by default (configurable via settings)
+    /// Runs every 30 seconds for real-time price monitoring
     /// </summary>
     public class PriceAlertCheckService : BackgroundService
     {
         private readonly ILogger<PriceAlertCheckService> _logger;
         private readonly IServiceProvider _serviceProvider;
         private readonly WarframeMarketApiService _marketApiService;
-        private TimeSpan _checkInterval = TimeSpan.FromMinutes(5); // Default: Check every 5 minutes
+        private TimeSpan _checkInterval = TimeSpan.FromSeconds(30); // Check every 30 seconds
 
         public PriceAlertCheckService(
             ILogger<PriceAlertCheckService> logger,
@@ -62,9 +62,9 @@ namespace Warframe_Utils_.NET.Services
             {
                 var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
 
-                // Get all active alerts that haven't been triggered
+                // Get all active alerts (keep checking even if already triggered, so we can create notifications)
                 var activeAlerts = await context.PriceAlerts
-                    .Where(a => a.IsActive && !a.IsTriggered)
+                    .Where(a => a.IsActive)
                     .ToListAsync(stoppingToken);
 
                 if (!activeAlerts.Any())
@@ -101,24 +101,58 @@ namespace Warframe_Utils_.NET.Services
                         if (currentPrice.HasValue && currentPrice.Value <= alert.AlertPrice)
                         {
                             _logger.LogWarning(
-                                $"Price alert triggered for {alert.ItemName}: Current price {currentPrice} <= Alert price {alert.AlertPrice}");
+                                $"Price condition met for {alert.ItemName}: Current price {currentPrice} <= Alert price {alert.AlertPrice}");
 
-                            // Mark alert as triggered
-                            alert.IsTriggered = true;
-                            alert.TriggeredAt = DateTime.UtcNow;
-
-                            // Create notification for the user
-                            var notification = new AlertNotification
+                            // Mark alert as triggered (just a status flag)
+                            if (!alert.IsTriggered)
                             {
-                                UserId = alert.UserId,
-                                PriceAlertId = alert.Id,
-                                Message = $"The price of {alert.ItemName} has dropped to {currentPrice:C} (alert threshold: {alert.AlertPrice:C})",
-                                TriggeredPrice = currentPrice.Value,
-                                CreatedAt = DateTime.UtcNow,
-                                IsRead = false
-                            };
+                                alert.IsTriggered = true;
+                                alert.TriggeredAt = DateTime.UtcNow;
+                            }
 
-                            context.AlertNotifications.Add(notification);
+                            // Check if there's already an unread notification for this alert with the same price
+                            // This prevents duplicate notifications for the same price, but allows new ones if price changes
+                            var existingUnreadNotification = await context.AlertNotifications
+                                .AnyAsync(n => n.PriceAlertId == alert.Id && !n.IsRead && n.TriggeredPrice == currentPrice.Value, stoppingToken);
+
+                            if (!existingUnreadNotification)
+                            {
+                                // Create notification for the user
+                                var notification = new AlertNotification
+                                {
+                                    UserId = alert.UserId,
+                                    PriceAlertId = alert.Id,
+                                    Message = $"The price of {alert.ItemName} has dropped to {currentPrice.Value} platinum (alert threshold: {alert.AlertPrice})",
+                                    TriggeredPrice = currentPrice.Value,
+                                    CreatedAt = DateTime.UtcNow,
+                                    IsRead = false
+                                };
+
+                                context.AlertNotifications.Add(notification);
+                                _logger.LogWarning($"Notification created for alert {alert.Id} ({alert.ItemName}) at price {currentPrice.Value}");
+                            }
+                            else
+                            {
+                                _logger.LogInformation($"Unread notification already exists for alert {alert.Id} at price {currentPrice.Value}, skipping");
+                            }
+                        }
+                        else if (currentPrice.HasValue && currentPrice.Value > alert.AlertPrice)
+                        {
+                            // Price went back up above threshold - reset triggered status so we can notify again when it drops
+                            if (alert.IsTriggered)
+                            {
+                                // Check if all notifications for this alert are read
+                                var hasUnreadNotifications = await context.AlertNotifications
+                                    .AnyAsync(n => n.PriceAlertId == alert.Id && !n.IsRead, stoppingToken);
+                                
+                                if (!hasUnreadNotifications)
+                                {
+                                    // All notifications are read and price is above threshold - reset so we can notify again
+                                    alert.IsTriggered = false;
+                                    alert.TriggeredAt = null;
+                                    _logger.LogInformation($"Reset alert {alert.Id} - price above threshold and all notifications read");
+                                }
+                            }
                         }
 
                         context.PriceAlerts.Update(alert);
