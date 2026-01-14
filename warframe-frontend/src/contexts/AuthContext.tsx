@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import { apiUrl } from "@/lib/api";
 
 interface User {
   email: string;
@@ -27,8 +28,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const checkAuth = async () => {
     try {
-      // Get actual user info from backend
-      const response = await fetch("http://localhost:5089/api/User/me", {
+      // Get actual user info from backend (uses Next.js rewrite proxy)
+      const response = await fetch(apiUrl("User/me"), {
         credentials: "include",
       });
       
@@ -51,7 +52,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = async (email: string, password: string): Promise<boolean> => {
     try {
-      const response = await fetch("http://localhost:5089/api/Auth/login", {
+      const response = await fetch(apiUrl("Auth/login"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -79,7 +80,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const register = async (email: string, password: string): Promise<boolean> => {
     try {
-      const response = await fetch("http://localhost:5089/api/Auth/register", {
+      const response = await fetch(apiUrl("Auth/register"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -107,7 +108,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = async () => {
     try {
-      await fetch("http://localhost:5089/api/Auth/logout", {
+      await fetch(apiUrl("Auth/logout"), {
         method: "POST",
         credentials: "include",
       });

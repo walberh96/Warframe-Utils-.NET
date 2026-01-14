@@ -1,0 +1,22 @@
+# Example override file for local development
+# Copy this to docker-compose.override.yml and customize as needed
+# docker-compose.override.yml is automatically loaded by docker compose
+
+version: '3.8'
+
+services:
+  backend:
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+    volumes:
+      - ./Warframe Utils .NET:/app
+      - ./Warframe Utils .NET/appsettings.Development.json:/app/appsettings.Development.json:ro
+
+  frontend:
+    environment:
+      - NODE_ENV=development
+    volumes:
+      - ./warframe-frontend:/app
+      - /app/node_modules
+      - /app/.next
+

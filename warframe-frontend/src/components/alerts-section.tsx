@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Bell, Trash2, AlertCircle, Lock, Edit2, X, Check } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
+import { apiUrl } from "@/lib/api";
 import {
   Dialog,
   DialogContent,
@@ -42,7 +43,7 @@ export function AlertsSection() {
 
   const fetchAlerts = async () => {
     try {
-      const response = await fetch("http://localhost:5089/api/Alert", {
+      const response = await fetch(apiUrl("Alert"), {
         credentials: "include",
       });
       if (response.ok) {
@@ -66,7 +67,7 @@ export function AlertsSection() {
 
   const deleteAlert = async (id: number) => {
     try {
-      const response = await fetch(`http://localhost:5089/api/Alert/${id}`, {
+      const response = await fetch(apiUrl(`Alert/${id}`), {
         method: "DELETE",
         credentials: "include",
       });
@@ -112,7 +113,7 @@ export function AlertsSection() {
 
     setIsUpdating(true);
     try {
-      const response = await fetch(`http://localhost:5089/api/Alert/${editingAlert.id}`, {
+      const response = await fetch(apiUrl(`Alert/${editingAlert.id}`), {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         credentials: "include",

@@ -1,0 +1,92 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: warframe-postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-warframe_utils}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - warframe-network
+    restart: unless-stopped
+
+  # .NET Backend API
+  backend:
+    build:
+      context: ./Warframe Utils .NET
+      dockerfile: Dockerfile
+    container_name: warframe-backend
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:8080
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=${POSTGRES_DB:-warframe_utils};Username=${POSTGRES_USER:-postgres};Password=${POSTGRES_PASSWORD}
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - warframe-network
+    restart: unless-stopped
+    volumes:
+      # Mount appsettings.Production.json if you want to override settings
+      - ./Warframe Utils .NET/appsettings.Production.json:/app/appsettings.Production.json:ro
+
+  # Next.js Frontend
+  frontend:
+    build:
+      context: ./warframe-frontend
+      dockerfile: Dockerfile
+      args:
+        - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:8080}
+        - BACKEND_URL=${BACKEND_URL:-http://backend:8080}
+    container_name: warframe-frontend
+    environment:
+      - NODE_ENV=production
+      - BACKEND_URL=${BACKEND_URL:-http://backend:8080}
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:8080}
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    networks:
+      - warframe-network
+    restart: unless-stopped
+
+  # Nginx Reverse Proxy (Optional but recommended for production)
+  nginx:
+    image: nginx:alpine
+    container_name: warframe-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - frontend
+      - backend
+    networks:
+      - warframe-network
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  warframe-network:
+    driver: bridge
+
